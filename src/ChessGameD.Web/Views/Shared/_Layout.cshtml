@@ -1,0 +1,43 @@
+﻿@using ChessGameD.Web
+@using ChessGameD.Web.Models
+@{
+    var title = ViewData["Title"] as string ?? "国际象棋复盘";
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
+}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@title · ChessGameD</title>
+    <link rel="stylesheet" href="~/lib/cm-chessboard/assets/chessboard.css" />
+    @* 扩展的样式要单独引入:箭头的线条颜色/箭头头部都在这里,少了它箭头就画不出来 *@
+    <link rel="stylesheet" href="~/lib/cm-chessboard/assets/extensions/arrows/arrows.css" />
+    <link rel="stylesheet" href="~/css/app.css" />
+</head>
+<body>
+<header class="topbar">
+    <div class="brand">&#9820; ChessGame<span>D</span></div>
+    <nav>
+        <a href="/Home/Index" class="@(controller == "Home" ? "active" : "")">首页</a>
+        <a href="/Games/Index" class="@(controller == "Games" ? "active" : "")">棋局</a>
+        <a href="/Settings/Index" class="@(controller == "Settings" ? "active" : "")">设置</a>
+    </nav>
+    <div class="spacer"></div>
+    <span id="engine-indicator" class="badge">引擎状态加载中…</span>
+</header>
+
+<main class="container @(ViewData["ContainerClass"] as string)">
+    @RenderBody()
+</main>
+
+<footer class="notes">
+    本地单机复盘工具 · 引擎 <a href="https://stockfishchess.org/" target="_blank" rel="noopener">Stockfish</a> (GPL-3.0, 独立进程)
+    · 前端 <a href="https://github.com/jhlywa/chess.js" target="_blank" rel="noopener">chess.js</a> (BSD-2-Clause)
+    / <a href="https://github.com/shaack/cm-chessboard" target="_blank" rel="noopener">cm-chessboard</a> (MIT, 棋子 CC BY-SA 3.0)
+</footer>
+
+<script src="~/js/app.js"></script>
+@await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

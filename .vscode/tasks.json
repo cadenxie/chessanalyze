@@ -1,0 +1,146 @@
+{
+  // ChessGameD 任务配置。
+  // "Ctrl+Shift+B" 跑默认构建任务;所有任务也能从 "终端 → 运行任务" 里调起。
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "restore",
+      "detail": "还原整个解决方案的 NuGet 包",
+      "type": "shell",
+      "command": "dotnet",
+      "args": ["restore", "${workspaceFolder}/ChessGameD.sln"],
+      "problemMatcher": []
+    },
+    {
+      "label": "build",
+      "detail": "构建整个解决方案(Web + 测试 + 假引擎)",
+      "type": "shell",
+      "command": "dotnet",
+      "args": ["build", "${workspaceFolder}/ChessGameD.sln", "-c", "Debug", "--nologo"],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": ["$msCompile"]
+    },
+    {
+      "label": "build:web",
+      "detail": "只构建 Web 项目(调试配置的 preLaunchTask)",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/src/ChessGameD.Web/ChessGameD.Web.csproj",
+        "-c",
+        "Debug",
+        "--nologo"
+      ],
+      "group": "build",
+      "problemMatcher": ["$msCompile"]
+    },
+    {
+      "label": "clean",
+      "detail": "清理 Debug 产物",
+      "type": "shell",
+      "command": "dotnet",
+      "args": ["clean", "${workspaceFolder}/ChessGameD.sln", "-c", "Debug"],
+      "problemMatcher": []
+    },
+    {
+      "label": "run",
+      "detail": "直接跑起来(不挂调试器)",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "${workspaceFolder}/src/ChessGameD.Web/ChessGameD.Web.csproj",
+        "--launch-profile",
+        "http"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/src/ChessGameD.Web"
+      },
+      "problemMatcher": ["$msCompile"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      }
+    },
+    {
+      "label": "watch",
+      "detail": "热重载:改代码自动重建并重启(不挂调试器)",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "watch",
+        "--project",
+        "${workspaceFolder}/src/ChessGameD.Web/ChessGameD.Web.csproj",
+        "--launch-profile",
+        "http"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/src/ChessGameD.Web"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "dotnet-watch",
+        "fileLocation": ["autoDetect", "${workspaceFolder}"],
+        "pattern": {
+          "regexp": "^\\s*error\\s+(\\S+)\\s*:\\s*.*$",
+          "message": 1,
+          "fileLocation": 3
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*(Watching for file changes|watch : Started).*",
+          "endsPattern": ".*Unable to watch for file changes.*"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      }
+    },
+    {
+      "label": "test",
+      "detail": "跑全部单元测试",
+      "type": "shell",
+      "command": "dotnet",
+      "args": ["test", "${workspaceFolder}/ChessGameD.sln", "-c", "Debug", "--nologo"],
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "problemMatcher": ["$msCompile"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      }
+    },
+    {
+      "label": "test:filter",
+      "detail": "跑单个测试类(改一下 filter 里的名字)",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "test",
+        "${workspaceFolder}/tests/ChessGameD.Tests/ChessGameD.Tests.csproj",
+        "-c",
+        "Debug",
+        "--nologo",
+        "--filter",
+        "FullyQualifiedName~PgnImportTests"
+      ],
+      "problemMatcher": ["$msCompile"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      }
+    }
+  ]
+}

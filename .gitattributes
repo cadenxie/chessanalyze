@@ -1,0 +1,39 @@
+# 仓库内统一以 LF 存储,检出时按平台默认转换,避免 Windows 上"整个仓库都显示已修改"
+* text=auto
+
+# 文本文件明确按 LF 检出
+*.cs        text eol=lf
+*.csproj   text eol=lf
+*.sln      text eol=lf
+*.json     text eol=lf
+*.md       text eol=lf
+*.yml      text eol=lf
+*.yaml     text eol=lf
+*.css      text eol=lf
+*.js       text eol=lf
+*.scss     text eol=lf
+*.svg      text eol=lf
+*.pgn      text eol=lf
+*.cshtml   text eol=lf
+
+# Windows 上必须用 CRLF 的脚本
+*.bat      text eol=crlf
+*.cmd      text eol=crlf
+*.ps1      text eol=crlf
+
+# 二进制:不做行尾转换
+*.dll      binary
+*.exe      binary
+*.pdb      binary
+*.db       binary
+*.db-wal   binary
+*.db-shm   binary
+*.sqlite   binary
+*.ico      binary
+*.png      binary
+*.jpg      binary
+*.woff     binary
+*.woff2    binary
+*.ttf      binary
+*.zip      binary
+*.gz       binary

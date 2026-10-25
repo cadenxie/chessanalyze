@@ -1,0 +1,93 @@
+@model ChessGameD.Web.Models.SettingsViewModel
+@{
+    ViewData["Title"] = "设置";
+}
+
+<div class="row wrap">
+    <div class="col" style="max-width: 640px;">
+        <div class="panel">
+            <h2>Stockfish 引擎</h2>
+            <div class="kv">
+                <div class="k">状态</div>
+                <div><span id="engine-state" class="badge">加载中…</span></div>
+                <div class="k">版本</div>
+                <div id="engine-version" class="mono">—</div>
+                <div class="k">路径</div>
+                <div id="engine-path" class="mono small">—</div>
+                <div class="k">安装时间</div>
+                <div id="engine-installed-at" class="small muted">@(Model.EngineInstalledAt ?? "—")</div>
+            </div>
+
+            <h3>一键安装</h3>
+            <p class="small muted">
+                从 Stockfish 官方 GitHub Releases 下载最新的 Windows 通用版(约 80MB),
+                校验 SHA-256 后解压到项目的 <span class="mono">App_Data/engines</span> 目录。
+            </p>
+            <div class="row" style="align-items:center;">
+                <button class="primary" id="btn-install">下载并安装 / 更新</button>
+                <span id="install-stage" class="small muted"></span>
+            </div>
+            <div class="progress" id="install-progress" style="display:none; margin-top:10px;">
+                <div id="install-bar" style="width:0%"></div>
+            </div>
+            <div id="install-error" class="small" style="color:#e88; margin-top:8px;"></div>
+
+            <h3>手动指定引擎路径</h3>
+            <p class="small muted">如果自动下载失败(例如网络受限),可以手动下载 Stockfish 后在这里填写可执行文件的完整路径。</p>
+            <label class="field">
+                <span>stockfish.exe 的完整路径</span>
+                <input type="text" id="manual-path" placeholder="D:\tools\stockfish.exe" value="@Model.EnginePath" />
+            </label>
+            <button id="btn-set-path">使用该路径</button>
+
+            <h3>下载代理</h3>
+            <p class="small muted">
+                直连 GitHub 很慢或连不上时,填一个本地代理地址(例如 <span class="mono">http://127.0.0.1:7897</span>)。
+                留空表示直连。
+            </p>
+            <label class="field">
+                <span>代理地址</span>
+                <input type="text" id="opt-proxy" placeholder="http://127.0.0.1:7897" value="@Model.ProxyUrl" />
+            </label>
+        </div>
+    </div>
+
+    <div class="col" style="max-width: 520px;">
+        <div class="panel">
+            <h2>引擎参数</h2>
+            <label class="field">
+                <span>线程数(0 = 自动,使用 CPU 核数 - 1)</span>
+                <input type="number" id="opt-threads" min="0" max="512" value="@Model.Threads" />
+            </label>
+            <label class="field">
+                <span>Hash 内存(MB)</span>
+                <input type="number" id="opt-hash" min="16" max="65536" value="@Model.HashMb" />
+            </label>
+            <label class="field">
+                <span>MultiPV 候选数(1 = 只看最佳着法)</span>
+                <input type="number" id="opt-multipv" min="1" max="8" value="@Model.MultiPv" />
+            </label>
+            <label class="field">
+                <span>即时分析深度</span>
+                <input type="number" id="opt-depth" min="1" max="60" value="@Model.DefaultDepth" />
+            </label>
+            <label class="field">
+                <span>整局分析深度(越深越慢)</span>
+                <input type="number" id="opt-analysis-depth" min="1" max="60" value="@Model.AnalysisDepth" />
+            </label>
+            <button class="primary" id="btn-save">保存设置</button>
+            <span id="save-status" class="small muted"></span>
+        </div>
+
+        <div class="panel">
+            <h2>测试连接</h2>
+            <p class="small muted">用初始局面跑一次短搜索,确认引擎工作正常。</p>
+            <button id="btn-test">测试引擎</button>
+            <span id="test-status" class="small muted"></span>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/settings.js"></script>
+}

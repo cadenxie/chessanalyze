@@ -1,0 +1,92 @@
+{
+  // ChessGameD 调试配置(jsonc,允许注释)。
+  //
+  // 前置条件:安装 "C# Dev Kit"(推荐)或 "C#"(ms-dotnettools.csharp)扩展,
+  // 否则 VS Code 不认识 "coreclr" 这个调试器类型。
+  //
+  // 用法:在 "运行和调试" 面板(F5)里选一个配置 → F5 启动。
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // 主用配置:HTTP 调试。端口与 Properties/launchSettings.json 的 http profile 一致(5055)。
+      "name": "Web: 调试 (http://localhost:5055)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build:web",
+      "program": "${workspaceFolder}/src/ChessGameD.Web/bin/Debug/net8.0/ChessGameD.Web.dll",
+      // 工作目录必须是项目目录:Program.cs 用 ContentRootPath 定位 App_Data,
+      // 数据库(chessgame.db)和已安装的 Stockfish 都在这里,换目录会丢数据。
+      "cwd": "${workspaceFolder}/src/ChessGameD.Web",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:5055",
+        "ASPNETCORE_CONTENTROOT": "${workspaceFolder}/src/ChessGameD.Web"
+      },
+      "justMyCode": true,
+      "presentation": {
+        // 引擎下载/分析进度、HTTP 请求日志都打在终端里,调试时看得见。
+        "console": "integratedTerminal"
+      },
+      "serverReadyAction": {
+        // 等服务真正监听后再打开浏览器,避免开出一个"无法连接"的白页。
+        "action": "openExternally",
+        "pattern": "Now listening on: (https?://\\S+)",
+        "uriFormat": "%s",
+        "killOnServerStop": true
+      }
+    },
+    {
+      // HTTPS 调试。需要可信的开发证书:
+      //   dotnet dev-certs https --trust
+      // 若报 "No server certificate was specified",先执行上面那条命令。
+      "name": "Web: 调试 (https://localhost:7007)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build:web",
+      "program": "${workspaceFolder}/src/ChessGameD.Web/bin/Debug/net8.0/ChessGameD.Web.dll",
+      "cwd": "${workspaceFolder}/src/ChessGameD.Web",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "https://localhost:7007;http://localhost:5055",
+        "ASPNETCORE_CONTENTROOT": "${workspaceFolder}/src/ChessGameD.Web"
+      },
+      "justMyCode": true,
+      "presentation": {
+        "console": "integratedTerminal"
+      },
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "Now listening on: (https?://\\S+)",
+        "uriFormat": "%s",
+        "killOnServerStop": true
+      }
+    },
+    {
+      // 调试但不开浏览器(自己用别的方式访问,或配了反向代理)。
+      "name": "Web: 调试 (不自动打开浏览器)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build:web",
+      "program": "${workspaceFolder}/src/ChessGameD.Web/bin/Debug/net8.0/ChessGameD.Web.dll",
+      "cwd": "${workspaceFolder}/src/ChessGameD.Web",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:5055",
+        "ASPNETCORE_CONTENTROOT": "${workspaceFolder}/src/ChessGameD.Web"
+      },
+      "justMyCode": true,
+      "presentation": {
+        "console": "integratedTerminal"
+      }
+    },
+    {
+      // 应用已经用 "run" 任务跑起来了,只想把调试器挂上去时用这个。
+      // 启动时会弹进程列表,选 ChessGameD.Web。
+      "name": "Web: 附加到已运行的进程",
+      "type": "coreclr",
+      "request": "attach",
+      "processId": "${command:pickMyProcess}",
+      "justMyCode": true
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+@model GameListViewModel
+@{
+    ViewData["Title"] = "棋局";
+}
+
+<div class="panel">
+    <h2>棋局列表 <span class="badge">@Model.Total</span></h2>
+    <form method="get" action="/Games/Index" class="row" style="align-items:center; margin-bottom:12px;">
+        <input type="search" name="q" value="@Model.Query" placeholder="按棋手 / 开局 / ECO / 赛事搜索" style="max-width: 420px;" />
+        <button type="submit">搜索</button>
+        @if (!string.IsNullOrWhiteSpace(Model.Query))
+        {
+            <a class="btn" href="/Games/Index">清除</a>
+        }
+    </form>
+
+    @if (Model.Games.Count == 0)
+    {
+        <p class="muted">没有找到棋局。<a href="/Home/Index">去导入 PGN</a>。</p>
+    }
+    else
+    {
+        <table class="games">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>白方</th>
+                    <th>黑方</th>
+                    <th>结果</th>
+                    <th>日期</th>
+                    <th>赛事</th>
+                    <th>开局</th>
+                    <th>步数</th>
+                    <th>分析</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var g in Model.Games)
+                {
+                    <tr>
+                        <td class="small muted">@g.Id</td>
+                        <td><a href="/Games/Review/@g.Id">@g.White</a></td>
+                        <td>@g.Black</td>
+                        <td class="result">@g.Result</td>
+                        <td class="small muted">@(g.Date ?? "-")</td>
+                        <td class="small">@(g.Event ?? "-")</td>
+                        <td class="small">@(g.Opening ?? g.Eco ?? "-")</td>
+                        <td class="small muted">@g.PlyCount</td>
+                        <td>@Html.Raw(g.HasAnalysis ? "<span class=\"badge ok\">已分析</span>" : "<span class=\"badge\">未分析</span>")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        @if (Model.Total > Model.Games.Count)
+        {
+            <p class="small muted" style="margin-top:10px;">仅显示最近 500 局,共 @Model.Total 局。</p>
+        }
+    }
+</div>

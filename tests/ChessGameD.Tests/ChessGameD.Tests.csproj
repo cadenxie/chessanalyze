@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ChessDotNetCore" Version="1.6.0" />
+    <PackageReference Include="coverlet.collector" Version="6.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.11" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="xunit" Version="2.5.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ChessGameD.Web\ChessGameD.Web.csproj" />
+
+    <!-- 假 UCI 引擎:只构建、不引用程序集,构建完把产物拷进测试输出目录 -->
+    <ProjectReference Include="..\ChessGameD.FakeEngine\ChessGameD.FakeEngine.csproj"
+                      ReferenceOutputAssembly="false"
+                      Private="false" />
+  </ItemGroup>
+
+  <Target Name="CopyFakeEngineOutput" AfterTargets="Build">
+    <ItemGroup>
+      <FakeEngineOutput Include="$(MSBuildThisFileDirectory)..\ChessGameD.FakeEngine\bin\$(Configuration)\net8.0\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(FakeEngineOutput)"
+          DestinationFolder="$(OutDir)fakeengine\"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>

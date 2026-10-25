@@ -1,0 +1,85 @@
+﻿@model HomeViewModel
+@{
+    ViewData["Title"] = "首页";
+}
+
+<div class="row wrap">
+    <div class="col" style="max-width: 620px;">
+        <div class="panel">
+            <h2>引擎状态</h2>
+            <div class="kv">
+                <div class="k">状态</div>
+                <div><span id="engine-state" class="badge">加载中…</span></div>
+                <div class="k">版本</div>
+                <div id="engine-version" class="mono">—</div>
+                <div class="k">路径</div>
+                <div id="engine-path" class="mono small">—</div>
+            </div>
+            <div style="margin-top: 14px;">
+                <a class="btn" href="/Settings/Index">前往设置页安装 / 调整引擎</a>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>导入 PGN</h2>
+            <form id="import-form">
+                <label class="field">
+                    <span>选择 PGN 文件(可以包含多局)</span>
+                    <input type="file" id="import-file" accept=".pgn,.txt" />
+                </label>
+                <label class="field">
+                    <span>或者直接粘贴 PGN 文本</span>
+                    <textarea id="import-text" placeholder='[Event "?"] ...'></textarea>
+                </label>
+                <div class="row" style="align-items: center;">
+                    <button class="primary" type="submit" id="import-btn">开始导入</button>
+                    <span id="import-status" class="small muted"></span>
+                </div>
+            </form>
+            <div id="import-result"></div>
+        </div>
+    </div>
+
+    <div class="col">
+        <div class="panel">
+            <h2>最近的棋局 <span class="badge">@Model.TotalGames</span></h2>
+            @if (Model.RecentGames.Count == 0)
+            {
+                <p class="muted">还没有导入任何棋局。先在左侧导入一个 PGN 文件吧。</p>
+            }
+            else
+            {
+                <table class="games">
+                    <thead>
+                        <tr>
+                            <th>白方</th>
+                            <th>黑方</th>
+                            <th>结果</th>
+                            <th>日期</th>
+                            <th>开局</th>
+                            <th>分析</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var g in Model.RecentGames)
+                        {
+                            <tr>
+                                <td><a href="/Games/Review/@g.Id">@g.White</a></td>
+                                <td>@g.Black</td>
+                                <td class="result">@g.Result</td>
+                                <td class="small muted">@(g.Date ?? "-")</td>
+                                <td class="small">@(g.Opening ?? g.Eco ?? "-")</td>
+                                <td>@Html.Raw(g.HasAnalysis ? "<span class=\"badge ok\">已分析</span>" : "<span class=\"badge\">未分析</span>")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                <p style="margin-top:12px"><a href="/Games/Index">查看全部棋局 →</a></p>
+            }
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/home.js"></script>
+}
