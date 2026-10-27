@@ -14,6 +14,10 @@ let analysisRunning = false;
 let instantToken = 0;
 let userMoveFen = null;         // 用户在棋盘上试走后的局面
 let pendingUserMove = null;
+let pvBaseFen = null;           // 主变起算局面的 FEN
+let pvSteps = [];               // 主变分解:[{ uci, san, fen }]
+let pvToken = 0;                // 演示令牌,用于打断上一次主变演示
+let pvCurrent = -1;             // 当前演示到主变第几步(-1 表示未在演示)
 
 const boardEl = document.getElementById('board');
 const chartCanvas = document.getElementById('evalchart');
@@ -124,6 +128,7 @@ function highlightCurrentMove() {
 
 function goTo(ply) {
     if (!moves.length) { return; }
+    stopPvPlayback();
     currentPly = Math.max(0, Math.min(moves.length - 1, ply));
     userMoveFen = null;
     board.setPosition(moves[currentPly].fen, true);
@@ -333,11 +338,20 @@ function setInstantPanel(result, fen) {
     const candEl = document.getElementById('inst-candidates');
     const detailEl = document.getElementById('eval-detail');
 
+    // 新的分析结果来了,先把上一次的主变演示打断
+    stopPvPlayback();
+    pvBaseFen = null;
+    pvSteps = [];
+
+    // 演示被打断后,棋盘要回到分析所对应的局面
+    if (fen) { board.setPosition(fen, true); }
+
     if (!result) {
         scoreEl.textContent = '…';
         depthEl.textContent = '…';
         nodesEl.textContent = '…';
         pvEl.textContent = '…';
+        pvEl.dataset.signature = '…';   // 标记成占位,下一次有结果时一定会重画
         candEl.innerHTML = '';
         return;
     }
@@ -350,15 +364,12 @@ function setInstantPanel(result, fen) {
             + (userMoveFen ? ' · 试走局面(升变按后计算)' : '');
     }
 
-    board.removeArrows();
-    if (result.pv && result.pv.length) {
-        const first = result.pv[0];
-        if (first && first.length >= 4) {
-            board.addArrow(ARROW_TYPE.default, first.slice(0, 2), first.slice(2, 4));
-        }
-    }
+    // 主变拆成可点击的步骤,点击后棋盘会逐步演示
+    pvBaseFen = fen;
+    pvSteps = buildPvSteps(result.pv || [], fen);
+    renderPvSteps(pvSteps);
+    showPvArrow();
 
-    pvEl.innerHTML = renderPv(result.pv || [], fen);
     candEl.innerHTML = (result.lines || []).map(function (line) {
         return '<div class="cand"><span class="score">' + CG.escapeHtml(CG.formatScore(line.scoreCp, line.scoreMate)) +
             '</span><span class="moves">' + CG.escapeHtml(renderPlainSan(line.pv || [], fen)) + '</span></div>';
@@ -366,11 +377,24 @@ function setInstantPanel(result, fen) {
 }
 
 function uciToSanList(fen, pv) {
-    if (!pv || !pv.length) { return []; }
-    let chess;
-    try { chess = new Chess(fen); } catch (e) { return []; }
+    return buildPvSteps(pv, fen).map(function (step) { return step.san; });
+}
 
-    const sans = [];
+function renderPlainSan(pv, fen) {
+    return uciToSanList(fen, pv).join(' ');
+}
+
+/**
+ * 把 UCI 主变拆成逐步的着法,并记录每一步之后的局面。
+ * 引擎给的是 UCI(e2e4),这里顺带转成人看的 SAN(e4)。
+ */
+function buildPvSteps(pv, fen) {
+    const steps = [];
+    if (!pv || !pv.length) { return steps; }
+
+    let chess;
+    try { chess = new Chess(fen); } catch (e) { return steps; }
+
     for (const uci of pv) {
         if (!uci || uci.length < 4) { break; }
         const from = uci.slice(0, 2);
@@ -379,23 +403,137 @@ function uciToSanList(fen, pv) {
         try {
             const move = chess.move({ from: from, to: to, promotion: promotion });
             if (!move) { break; }
-            sans.push(move.san);
+            steps.push({ uci: uci, san: move.san, fen: chess.fen() });
         } catch (e) { break; }
     }
-    return sans;
+    return steps;
 }
 
-function renderPlainSan(pv, fen) {
-    return uciToSanList(fen, pv).join(' ');
+/* ---------------- 主变(PV)逐步演示 ---------------- */
+
+const PV_STEP_PAUSE = 220;    // 每步演示之间的停顿(毫秒)
+
+function delay(ms) {
+    return new Promise(function (resolve) { setTimeout(resolve, ms); });
 }
 
-function renderPv(pv, fen) {
-    const sans = uciToSanList(fen, pv);
-    if (!sans.length) { return '—'; }
-    return sans.map(function (san, i) {
-        const uci = pv[i];
-        return '<span class="pv-move" data-uci="' + CG.escapeHtml(uci) + '">' + CG.escapeHtml(san) + '</span>';
-    }).join(' ');
+/** 渲染主变:每一步都是可点击的着法。内容没变就不重画,避免打断正在进行的点击。 */
+function renderPvSteps(steps) {
+    const pvEl = document.getElementById('inst-pv');
+    if (!pvEl) { return; }
+
+    const signature = steps.map(function (step) { return step.uci; }).join(',');
+    if (pvEl.dataset.signature === signature) { return; }
+    pvEl.dataset.signature = signature;
+    pvEl.innerHTML = '';
+
+    if (!steps.length) {
+        pvEl.textContent = '—';
+        return;
+    }
+
+    steps.forEach(function (step, index) {
+        const span = document.createElement('span');
+        span.className = 'pv-move';
+        span.dataset.index = String(index);
+        span.dataset.uci = step.uci;
+        span.textContent = step.san;
+        span.title = '点击在棋盘上演示到这一步';
+        span.addEventListener('click', function () {
+            // 主变已经重画,这次点击作废,免得演示到别的着法上
+            if (!span.isConnected) { return; }
+            playPvTo(index);
+        });
+        pvEl.appendChild(span);
+        if (index < steps.length - 1) {
+            pvEl.appendChild(document.createTextNode(' '));
+        }
+    });
+}
+
+/**
+ * 高亮主变中的某一步,并把箭头指到这一步。
+ * 按 uci 匹配,主变重画后也不会高亮错位置。
+ */
+function highlightPvStep(uci) {
+    const cells = document.querySelectorAll('#inst-pv .pv-move');
+    cells.forEach(function (cell) {
+        cell.classList.toggle('pv-current', !!uci && cell.dataset.uci === uci);
+    });
+
+    setPvArrow(uci);
+}
+
+/** 只画箭头,不高亮任何一步。 */
+function setPvArrow(uci) {
+    board.removeArrows();
+    if (uci && uci.length >= 4) {
+        board.addArrow(ARROW_TYPE.default, uci.slice(0, 2), uci.slice(2, 4));
+    }
+}
+
+/** 没在演示时,箭头指向主变第一着(引擎推荐)。 */
+function showPvArrow() {
+    const first = pvSteps.length ? pvSteps[0] : null;
+    setPvArrow(first ? first.uci : null);
+}
+
+function updatePvStatus(san, total) {
+    const back = document.getElementById('btn-pv-back');
+    if (back) {
+        back.style.display = pvCurrent >= 0 ? '' : 'none';
+    }
+
+    const el = document.getElementById('pv-status');
+    if (!el) { return; }
+
+    if (pvCurrent < 0 || !pvSteps.length) {
+        el.textContent = '';
+        return;
+    }
+
+    const stepSan = san || (pvSteps[pvCurrent] ? pvSteps[pvCurrent].san : '');
+    const stepTotal = total || pvSteps.length;
+    el.textContent = '主变演示 ' + (pvCurrent + 1) + '/' + stepTotal + ':' + stepSan
+        + ' —— 点「返回原局面」或按 ← 回到棋局';
+}
+
+/** 打断正在进行的主变演示,棋盘由调用方负责复位。 */
+function stopPvPlayback() {
+    pvToken++;
+    pvCurrent = -1;
+    showPvArrow();
+    updatePvStatus();
+    setMoveInputEnabled(true);
+}
+
+/**
+ * 从主变起点开始,把棋盘逐步演示到第 index 步。
+ * 每一步都是一次带动画的 setPosition,棋子会自己走过去。
+ */
+async function playPvTo(index) {
+    if (!pvSteps.length || !pvBaseFen) { return; }
+
+    const target = Math.max(0, Math.min(pvSteps.length - 1, index));
+    const token = ++pvToken;
+    const steps = pvSteps;
+    const base = pvBaseFen;
+
+    // 演示期间棋盘展示的是主变局面,先禁掉试走
+    setMoveInputEnabled(false);
+
+    // 先回到主变起点
+    await board.setPosition(base, true);
+    if (token !== pvToken) { return; }
+
+    for (let i = 0; i <= target; i++) {
+        pvCurrent = i;
+        highlightPvStep(steps[i].uci);
+        updatePvStatus(steps[i].san, steps.length);
+        await board.setPosition(steps[i].fen, true);
+        if (token !== pvToken) { return; }
+        await delay(PV_STEP_PAUSE);
+    }
 }
 
 /* ---------------- 整局分析 ---------------- */
@@ -480,7 +618,9 @@ async function loadAnalysisResult() {
 
 /* ---------------- 棋盘试走 ---------------- */
 
-board.enableMoveInput(function (evt) {
+let moveInputEnabled = false;
+
+function onMoveInput(evt) {
     if (evt.type === 'validateMoveInput') {
         // 返回值决定这一步是否合法
         return tryUserMove(evt.squareFrom, evt.squareTo);
@@ -495,7 +635,18 @@ board.enableMoveInput(function (evt) {
 
     // 其余事件(moveInputStarted 等)必须返回 true,否则棋子根本不会被拾起来
     return true;
-});
+}
+
+/** 开启/关闭棋盘拖子。主变演示期间棋盘展示的是主变局面,先禁掉试走。 */
+function setMoveInputEnabled(enabled) {
+    if (enabled === moveInputEnabled) { return; }
+    moveInputEnabled = enabled;
+    if (enabled) {
+        board.enableMoveInput(onMoveInput);
+    } else {
+        board.disableMoveInput();
+    }
+}
 
 function tryUserMove(from, to) {
     const baseFen = moves[currentPly] ? moves[currentPly].fen : null;
@@ -544,6 +695,12 @@ function bind() {
         });
     }
 
+    // 主变演示结束后,回到棋局的当前局面
+    const pvBack = document.getElementById('btn-pv-back');
+    if (pvBack) {
+        pvBack.addEventListener('click', function () { goTo(currentPly); });
+    }
+
     document.addEventListener('keydown', function (evt) {
         if (evt.target && /input|textarea/i.test(evt.target.tagName)) { return; }
         switch (evt.key) {
@@ -567,6 +724,7 @@ updateHeader();
 updateEvalBar();
 updateStoredRecommendation();
 drawChart();
+setMoveInputEnabled(true);     // 默认允许在棋盘上试走
 loadAnalysisResult();
 scheduleInstantAnalysis();   // 打开页面就先算当前局面的评估
 

@@ -48,7 +48,10 @@
             <button id="btn-next" title="下一步 (→)">▶</button>
             <button id="btn-last" title="到最后 (End)">⏭</button>
             <button id="btn-flip" title="翻转棋盘 (F)">翻转</button>
+            <button id="btn-pv-back" title="结束主变演示,回到棋局当前局面" style="display:none;">返回原局面</button>
         </div>
+
+        <div class="small muted" id="pv-status" style="min-height:18px; margin-top:6px;"></div>
 
         <div class="eval-bar-wrap">
             <div class="eval-bar">
@@ -81,6 +84,7 @@
                 </div>
                 <h3>主变 (PV)</h3>
                 <div class="pv-line" id="inst-pv">—</div>
+                <div class="small muted">点击主变里的着法,棋盘会从当前局面逐步演示到那一步。</div>
                 <h3>候选</h3>
                 <div class="candidate-list" id="inst-candidates"></div>
             </div>

@@ -62,7 +62,8 @@ ASP.NET Core MVC / .NET 8 / SQLite,前端零 npm 构建。只做复盘分析主�
 
 ## Commit conventions
 
-- 本仓库目前只有本地库、没有远端;分支从 `main` 切,别直接往 `main` 上堆改动
+- 远端是 GitHub `origin`(https://github.com/cadenxie/chessanalyze.git),**直接在 `main` 分支上提交并推送**,不要另开分支
+- `main` 是唯一的工作分支:改完直接 commit,然后 `git push origin main`,不要攒 feature 分支、也不要只留在本地
 - Commit message:一行中文摘要(可用 `feat:` / `fix:` / `docs:` / `refactor:` 前缀)+ 必要的正文
 - 提交前跑一遍 `dotnet test ChessGameD.sln`,并在 README 的「已知限制」里同步你改动的行为
 
