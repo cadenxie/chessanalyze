@@ -1,8 +1,10 @@
 {
   // 打开本项目时,VS Code 会提示安装这两个扩展 —— 装了才能正常按 F5 调试。
+  // 注意:C# Dev Kit 的扩展 ID 是 ms-dotnettools.csdevkit,
+  // 早年的 ms-dotnettools.csharpdevkit 已经改名,写旧 ID 会提示装错扩展。
   "recommendations": [
     "ms-dotnettools.csharp",
-    "ms-dotnettools.csharpdevkit"
+    "ms-dotnettools.csdevkit"
   ],
   "unwantedRecommendations": []
 }
