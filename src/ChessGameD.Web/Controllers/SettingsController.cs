@@ -23,17 +23,20 @@ public class SettingsController : Controller
     private readonly EngineManager _engine;
     private readonly EngineInstaller _installer;
     private readonly ChessOptions _options;
+    private readonly EnginePlatform _platform;
 
     public SettingsController(
         SettingsStore settings,
         EngineManager engine,
         EngineInstaller installer,
-        IOptions<ChessOptions> options)
+        IOptions<ChessOptions> options,
+        EnginePlatform platform)
     {
         _settings = settings;
         _engine = engine;
         _installer = installer;
         _options = options.Value;
+        _platform = platform;
     }
 
     public async Task<IActionResult> Index(CancellationToken ct)
@@ -55,6 +58,9 @@ public class SettingsController : Controller
             AnalysisDepth = await _settings.GetIntAsync(SettingsStore.EngineAnalysisDepth, 16, ct),
             EngineInstalledAt = await _settings.GetAsync(SettingsStore.EngineInstalledAt, ct),
             ProxyUrl = proxyUrl,
+            PlatformName = _platform.DisplayName,
+            PlatformAssetName = _platform.AssetName,
+            PlatformSupported = _platform.IsSupported,
         };
 
         return View(model);
@@ -72,6 +78,9 @@ public class SettingsController : Controller
             }
 
             await _settings.SetAsync(SettingsStore.EnginePath, Path.GetFullPath(path), ct);
+
+            // 手动指定的引擎就是当前平台的,记一下平台键,避免跨平台搬运时报"平台不一致"
+            await _settings.SetAsync(SettingsStore.EnginePlatformKey, _platform.Key, ct);
 
             try
             {

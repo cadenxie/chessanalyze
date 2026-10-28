@@ -1,6 +1,7 @@
 /* 设置页:引擎安装、参数保存、连接测试。 */
 (function () {
     var pollTimer = null;
+    var platformSupported = true;
 
     async function loadStatus() {
         var stateEl = document.getElementById('engine-state');
@@ -21,6 +22,24 @@
             versionEl.textContent = status.version || '—';
             pathEl.textContent = status.path || '—';
             if (status.lastError) { pathEl.title = status.lastError; }
+
+            var platformEl = document.getElementById('engine-platform');
+            if (platformEl && status.currentPlatform) {
+                platformEl.textContent = status.currentPlatform;
+            }
+
+            var warnEl = document.getElementById('platform-warning');
+            if (warnEl) {
+                warnEl.style.display = status.platformMismatch ? '' : 'none';
+            }
+
+            // 当前系统没有官方发行包时,禁用一键安装,只能手动指定路径
+            platformSupported = status.platformSupported !== false;
+            var installBtn = document.getElementById('btn-install');
+            if (installBtn) {
+                installBtn.disabled = !platformSupported;
+                installBtn.title = platformSupported ? '' : '当前系统没有官方发行包,请手动指定引擎路径。';
+            }
         } catch (e) {
             stateEl.textContent = '读取失败';
             stateEl.className = 'badge bad';
@@ -62,11 +81,11 @@
 
                 if (s.success === true) {
                     stage.textContent = '安装完成';
-                    btn.disabled = false;
+                    btn.disabled = !platformSupported;
                     CG.toast('引擎安装完成:' + (s.version || ''), 'ok');
                     await loadStatus();
                 } else if (s.success === false) {
-                    btn.disabled = false;
+                    btn.disabled = !platformSupported;
                     errorEl.textContent = s.error || '安装失败';
                     stage.textContent = '失败';
                     CG.toast(s.error || '安装失败', 'error');

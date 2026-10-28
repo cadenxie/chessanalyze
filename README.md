@@ -13,8 +13,8 @@ ASP.NET Core MVC / .NET 8 / SQLite,前端零 npm 构建。
 | 项目 | 要求 |
 | --- | --- |
 | .NET SDK | 8.0(开发时用的是 8.0.421) |
-| 操作系统 | Windows 10/11(x64 / ARM64)。一键安装下载的是官方 Windows 通用版引擎 |
-| 磁盘 | 引擎约 80MB,数据库与引擎都放在项目目录内 |
+| 操作系统 | Windows 10/11(x64 / ARM64)或 Linux(x64 / ARM64)。一键安装会自动按当前系统下载对应发行包 |
+| 磁盘 | 引擎约 100MB(解压后),数据库与引擎都放在项目目录内 |
 | 网络 | 仅"一键安装引擎"需要联网;GitHub 直连慢时可以填本地代理 |
 
 ## 快速开始
@@ -97,7 +97,8 @@ src/ChessGameD.Web/App_Data/
 └── engines/
     ├── .tmp/             # 下载临时目录
     └── stockfish-sf_19/  # 解压后的引擎
-        └── stockfish.exe
+        └── stockfish/    # Windows 下是 stockfish-windows-x86-64-universal.exe
+                         # Linux 下是 stockfish-linux-x86-64-universal
 ```
 
 想彻底清空重来,删掉整个 `App_Data` 目录即可(引擎要重新下载)。
@@ -108,7 +109,7 @@ src/ChessGameD.Web/App_Data/
 
 | 项 | 说明 |
 | --- | --- |
-| 引擎路径 | 自动安装失败时,可手动指定 `stockfish.exe` 的完整路径 |
+| 引擎路径 | 自动安装失败时,可手动指定引擎可执行文件的完整路径(Windows 是 `.exe`,Linux 是无扩展名的那个) |
 | 下载代理 | 直连 GitHub 慢/连不上时填本地代理,例如 `http://127.0.0.1:7897`;留空 = 直连 |
 | 线程数 | 0 = 自动(按 CPU 核数 - 1) |
 | Hash 内存 | 引擎搜索缓存(MB) |
@@ -123,6 +124,56 @@ src/ChessGameD.Web/App_Data/
 ```
 
 设置页的值优先于配置文件。
+
+### 一键安装怎么认平台
+
+设置页会显示当前**运行平台**(例如「Linux x64」),一键安装时程序会:
+
+1. 调 GitHub Releases API 拿最新版本的资产列表;
+2. 按「系统 + 架构 + 通用版」挑出匹配当前平台的那个资产
+   (Windows 是 `stockfish-windows-x86-64-universal.zip`,Linux 是 `stockfish-linux-x86-64-universal.tar.gz`,macOS 是 `stockfish-macos-universal.tar.gz`);
+3. 校验 SHA-256(取 Release 里公布的 `digest`),再解压到 `App_Data/engines` 并注册路径。
+
+Windows 官方包是 zip,Linux / macOS 官方包是 tar.gz,解压时按**文件头**判断格式,不靠扩展名;
+Linux / macOS 下还会自动给引擎补上执行权限(`chmod +x`)。
+
+GitHub API 拿不到时(限流/断网),会退回 `appsettings.json` 里按平台配置的兜底地址:
+
+```json
+"Chess": {
+  "Engine": {
+    "Fallbacks": {
+      "linux-x64": {
+        "Url": "https://github.com/official-stockfish/Stockfish/releases/download/sf_19/stockfish-linux-x86-64-universal.tar.gz",
+        "Sha256": "9defc0d4e55d49c65a6d042f3e571a39fcea499ade6dbe741b53b8c65e03611f",
+        "Version": "sf_19"
+      }
+    }
+  }
+}
+```
+
+键名可用 `windows-x64` / `windows-arm64` / `linux-x64` / `linux-arm64` / `macos`,
+也可以只写系统名(`linux`)当该系统的通用兜底,再或者写 `default` 给所有平台兜底。
+兜底地址里的资产名必须与当前平台匹配,否则会被忽略(避免在 Linux 上装成 Windows 包)。
+
+## 发布到 Ubuntu
+
+```bash
+dotnet publish src/ChessGameD.Web -c Release -r linux-x64 --self-contained false -o /opt/chessgame
+```
+
+发布后直接跑 `/opt/chessgame/ChessGameD.Web` 即可。几点注意:
+
+- **引擎不用提前准备**:第一次进「设置」页点「下载并安装 / 更新」,程序会自己下 Linux 版
+  (`stockfish-linux-x86-64-universal.tar.gz`)并解压到 `App_Data/engines`。
+- **数据库跟着走**:`App_Data/chessgame.db` 在发布目录里,升级版本时把它一起拷过去,棋局和设置不会丢。
+- **写权限**:发布目录要可写(引擎解压、SQLite 写入都需要),建议给运行用户单独开一个目录并 `chown`。
+- **后台常驻**:用 systemd 托管时记得加上 `WorkingDirectory=/opt/chessgame`,否则相对路径的 `App_Data` 会落到别处;
+  默认只监听 `http://localhost:5000`,想让局域网访问就设 `ASPNETCORE_URLS=http://0.0.0.0:5055`。
+- **反向代理**:放在 Nginx 后面时,`AllowedHosts` 保持 `*` 即可;程序本身不带鉴权,只建议监听内网或 localhost。
+- **架构要对上**:`linux-x64` 与 `linux-arm64` 的发布产物不能混用;一键安装会按运行时的架构选引擎包,
+  ARM64 机器上跑 x64 程序(靠模拟)时下载到的仍然是 x64 引擎包。
 
 ## 项目结构
 
@@ -144,7 +195,7 @@ ChessGameD.sln
 │       └── lib/                    # vendored 的 chess.js / cm-chessboard
 ├── samples/example.pgn             # 示例 PGN(三局经典名局)
 └── tests/
-    ├── ChessGameD.Tests/           # xUnit 测试(91 个)
+    ├── ChessGameD.Tests/           # xUnit 测试(108 个)
     └── ChessGameD.FakeEngine/      # 假的 UCI 引擎,给测试用
 ```
 
@@ -155,6 +206,8 @@ ChessGameD.sln
 - **分值统一存"相对白方"**,分类用的损失量按走子方符号还原。
 - **UCI→SAN 在服务端做**(`Services/Analysis/SanConverter.cs`):引擎给的是 `e2e4`,人看的是 `e4`,导出报告与"逐步推荐着法"都要用后者。
 - **数据库用 `EnsureCreated()`**,没有引入 EF Migrations 工具链;启动时发现表结构不匹配会自动重建。
+- **引擎包按运行平台选**:`Services/Engine/EnginePlatform.cs` 把「系统 + 架构 → 官方资产名 / 压缩格式」固化成一张表;
+  一键安装时按它挑 Release 资产,解压按文件头判断 zip 还是 tar.gz,解压完给引擎补执行权限。
 
 ## 测试
 
@@ -162,7 +215,7 @@ ChessGameD.sln
 dotnet test ChessGameD.sln
 ```
 
-91 个用例,覆盖 PGN 清洗、导入、走子分类(含漏着判定)、UCI→SAN 转换、报告生成、UCI 协议解析、一键安装(含 HTTP 打桩)、以及走完整 HTTP 链路的集成测试。
+108 个用例,覆盖 PGN 清洗、导入、走子分类(含漏着判定)、UCI→SAN 转换、报告生成、UCI 协议解析、一键安装(含 HTTP 打桩、平台匹配、zip / tar.gz 解压)、以及走完整 HTTP 链路的集成测试。
 测试用的假引擎是真实的独立控制台程序(`tests/ChessGameD.FakeEngine`),不用 `.cmd` 批处理——cmd.exe 从管道读 stdin 时会吞掉缓冲中的后续行,会让协议测试变成偶发失败。
 
 ## 许可与第三方组件

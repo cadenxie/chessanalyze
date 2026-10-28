@@ -71,6 +71,15 @@ public sealed class SettingsViewModel
 
     /// <summary>下载引擎时使用的代理(空 = 直连)。</summary>
     public string? ProxyUrl { get; set; }
+
+    /// <summary>当前运行平台,例如「Linux x64」。</summary>
+    public string PlatformName { get; set; } = "";
+
+    /// <summary>当前平台对应的官方发行包文件名(为空 = 没有官方包)。</summary>
+    public string PlatformAssetName { get; set; } = "";
+
+    /// <summary>当前平台是否有官方发行包可以一键安装。</summary>
+    public bool PlatformSupported { get; set; }
 }
 
 public sealed record InstantAnalysisResponse(

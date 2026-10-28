@@ -24,6 +24,16 @@
             if (status.lastError) {
                 pathEl.title = status.lastError;
             }
+
+            var platformEl = document.getElementById('engine-platform');
+            if (platformEl && status.currentPlatform) {
+                platformEl.textContent = status.currentPlatform;
+            }
+
+            var warnEl = document.getElementById('platform-warning');
+            if (warnEl) {
+                warnEl.style.display = status.platformMismatch ? '' : 'none';
+            }
         } catch (e) {
             stateEl.textContent = '读取失败';
             stateEl.className = 'badge bad';

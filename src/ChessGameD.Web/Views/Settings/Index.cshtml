@@ -16,12 +16,27 @@
                 <div id="engine-path" class="mono small">—</div>
                 <div class="k">安装时间</div>
                 <div id="engine-installed-at" class="small muted">@(Model.EngineInstalledAt ?? "—")</div>
+                <div class="k">运行平台</div>
+                <div id="engine-platform" class="mono small">@Model.PlatformName</div>
+            </div>
+
+            <div id="platform-warning" class="small" style="color:#e88; margin-top:8px; @(Model.Engine.PlatformMismatch ? "" : "display:none;")">
+                已安装的引擎与当前运行平台不一致,请重新下载对应平台的引擎。
             </div>
 
             <h3>一键安装</h3>
             <p class="small muted">
-                从 Stockfish 官方 GitHub Releases 下载最新的 Windows 通用版(约 80MB),
+                从 Stockfish 官方 GitHub Releases 下载与当前系统匹配的引擎
+                @if (Model.PlatformSupported)
+                {
+                    <text>(<span class="mono">@Model.PlatformAssetName</span>,下载约 80MB),</text>
+                }
+                else
+                {
+                    <text>(当前系统没有官方发行包,请手动指定路径),</text>
+                }
                 校验 SHA-256 后解压到项目的 <span class="mono">App_Data/engines</span> 目录。
+                Windows 与 Linux / macOS 的官方包格式不同(前者是 zip,后者是 tar.gz),程序会自动识别。
             </p>
             <div class="row" style="align-items:center;">
                 <button class="primary" id="btn-install">下载并安装 / 更新</button>
@@ -35,8 +50,8 @@
             <h3>手动指定引擎路径</h3>
             <p class="small muted">如果自动下载失败(例如网络受限),可以手动下载 Stockfish 后在这里填写可执行文件的完整路径。</p>
             <label class="field">
-                <span>stockfish.exe 的完整路径</span>
-                <input type="text" id="manual-path" placeholder="D:\tools\stockfish.exe" value="@Model.EnginePath" />
+                <span>引擎可执行文件的完整路径</span>
+                <input type="text" id="manual-path" placeholder="D:\tools\stockfish.exe 或 /usr/local/bin/stockfish" value="@Model.EnginePath" />
             </label>
             <button id="btn-set-path">使用该路径</button>
 

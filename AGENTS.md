@@ -56,9 +56,11 @@ ASP.NET Core MVC / .NET 8 / SQLite,前端零 npm 构建。只做复盘分析主�
 - **分值统一存"相对白方"**,分类用的损失量要按走子方符号还原
 - **UCI→SAN 在服务端做**(`Services/Analysis/SanConverter.cs`):引擎给的是 `e2e4`,人看的是 `e4`
 - **数据库用 `EnsureCreated()`**,没有引入 EF Migrations 工具链;启动时发现表结构不匹配会自动重建数据库
+- **引擎包按平台选**:`Services/Engine/EnginePlatform.cs` 把「运行系统 + 架构 → 官方资产名 / 压缩格式」固化成一张表;
+  Windows 官方包是 zip,Linux / macOS 官方包是 tar.gz,解压时按文件头判断格式,解压后要给引擎补执行权限
 - **引擎以独立进程通过 UCI 文本协议交互**,不链接、不分发 Stockfish;`UciEngineClient` 用 Channel 管道 + 单写锁,改它要保证能中断 `stop`
 - 漏着判定阈值目前写死(走子前优势 ≥ +1.5、走完优势 ≤ +0.3),不是配置项
-- 只支持 Windows 版 Stockfish;macOS / Linux 需自行指定引擎路径
+- 一键安装按当前运行平台(系统 + 架构)选官方包:Windows 是 zip,Linux / macOS 是 tar.gz;官方没有的架构需自行指定引擎路径
 
 ## Commit conventions
 

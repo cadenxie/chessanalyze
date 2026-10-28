@@ -1,3 +1,4 @@
+using System.Formats.Tar;
 using System.IO.Compression;
 using System.Net;
 using System.Security.Cryptography;
@@ -41,6 +42,27 @@ public class EngineInstallerTests : IDisposable
         return buffer.ToArray();
     }
 
+    /// <summary>构造一个 tar.gz(Linux / macOS 官方包就是这种格式)。</summary>
+    private static byte[] BuildTarGz(string entryName, bool executable = true)
+    {
+        using var buffer = new MemoryStream();
+        using (var gzip = new GZipStream(buffer, CompressionMode.Compress, leaveOpen: true))
+        using (var writer = new TarWriter(gzip, TarEntryFormat.Ustar))
+        {
+            var entry = new UstarTarEntry(TarEntryType.RegularFile, entryName)
+            {
+                DataStream = new MemoryStream(Encoding.ASCII.GetBytes("fake engine binary")),
+                Mode = executable
+                    ? UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute
+                    : UnixFileMode.UserRead | UnixFileMode.UserWrite,
+            };
+
+            writer.WriteEntry(entry);
+        }
+
+        return buffer.ToArray();
+    }
+
     private static string Sha256Of(byte[] data)
     {
         using var sha = SHA256.Create();
@@ -67,7 +89,11 @@ public class EngineInstallerTests : IDisposable
         public string EnvironmentName { get; set; } = "Development";
     }
 
-    private EngineInstaller CreateInstaller(TestDatabase db, Func<Uri, HttpResponseMessage> responder)
+    private EngineInstaller CreateInstaller(
+        TestDatabase db,
+        Func<Uri, HttpResponseMessage> responder,
+        EnginePlatform? platform = null,
+        ChessOptions? options = null)
     {
         var services = new ServiceCollection();
         services.AddLogging();
@@ -76,7 +102,8 @@ public class EngineInstallerTests : IDisposable
         var provider = services.BuildServiceProvider();
 
         var httpClientFactory = provider.GetRequiredService<IHttpClientFactory>();
-        var engineManager = new EngineManager(db.Settings, NullLogger<EngineManager>.Instance);
+        var effectivePlatform = platform ?? EnginePlatform.Create(EngineOsKind.Windows, EngineArchKind.X64);
+        var engineManager = new EngineManager(db.Settings, NullLogger<EngineManager>.Instance, effectivePlatform);
 
         var environment = new StubEnvironment { ContentRootPath = _root };
 
@@ -84,9 +111,10 @@ public class EngineInstallerTests : IDisposable
             httpClientFactory,
             db.Settings,
             engineManager,
-            Options.Create(new ChessOptions()),
+            Options.Create(options ?? new ChessOptions()),
             environment,
-            NullLogger<EngineInstaller>.Instance);
+            NullLogger<EngineInstaller>.Instance,
+            effectivePlatform);
     }
 
     private static HttpResponseMessage ReleasesJson(string assetName, string url, string? digest)
@@ -169,6 +197,145 @@ public class EngineInstallerTests : IDisposable
     }
 
     [Fact]
+    public async Task Install_LinuxPlatform_ExtractsTarGzAndRegistersUnixBinary()
+    {
+        await using var db = new TestDatabase();
+        var tarGz = BuildTarGz("stockfish/stockfish-linux-x86-64-universal");
+        var hash = Sha256Of(tarGz);
+
+        var installer = CreateInstaller(
+            db,
+            uri =>
+            {
+                if (uri.AbsolutePath.Contains("releases/latest"))
+                {
+                    return ReleasesJson(
+                        "stockfish-linux-x86-64-universal.tar.gz",
+                        "https://example.test/sf.tar.gz",
+                        "sha256:" + hash);
+                }
+
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(tarGz) };
+            },
+            EnginePlatform.Create(EngineOsKind.Linux, EngineArchKind.X64));
+
+        var result = await installer.InstallAsync(null);
+
+        Assert.True(result.Success, result.Error);
+        Assert.NotNull(result.EnginePath);
+        Assert.Equal("stockfish-linux-x86-64-universal", Path.GetFileName(result.EnginePath));
+        Assert.True(File.Exists(result.EnginePath));
+
+        var platformKey = await db.Settings.GetAsync(ChessGameD.Web.Data.SettingsStore.EnginePlatformKey);
+        Assert.Equal("linux", platformKey);
+    }
+
+    [Fact]
+    public async Task Install_LinuxPlatform_IgnoresWindowsAsset()
+    {
+        await using var db = new TestDatabase();
+        var zip = BuildZip("stockfish.exe");
+        var hash = Sha256Of(zip);
+
+        var installer = CreateInstaller(
+            db,
+            uri =>
+            {
+                if (uri.AbsolutePath.Contains("releases/latest"))
+                {
+                    return ReleasesJson(
+                        "stockfish-windows-x86-64-universal.zip",
+                        "https://example.test/sf.zip",
+                        "sha256:" + hash);
+                }
+
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(zip) };
+            },
+            EnginePlatform.Create(EngineOsKind.Linux, EngineArchKind.X64));
+
+        var result = await installer.InstallAsync(null);
+
+        Assert.False(result.Success);
+        Assert.Contains("没有找到适配", result.Error);
+    }
+
+    [Fact]
+    public async Task Install_UnsupportedPlatform_FailsWithHint()
+    {
+        await using var db = new TestDatabase();
+
+        var installer = CreateInstaller(
+            db,
+            _ => new HttpResponseMessage(HttpStatusCode.OK),
+            EnginePlatform.Create(EngineOsKind.Linux, EngineArchKind.X86));
+
+        var result = await installer.InstallAsync(null);
+
+        Assert.False(result.Success);
+        Assert.Contains("没有官方 Stockfish 发行包", result.Error);
+    }
+
+    [Fact]
+    public async Task Install_GitHubApiUnavailable_UsesPlatformFallback()
+    {
+        await using var db = new TestDatabase();
+        var tarGz = BuildTarGz("stockfish/stockfish-linux-x86-64-universal");
+        var hash = Sha256Of(tarGz);
+
+        var options = new ChessOptions();
+        options.Engine.Fallbacks["linux-x64"] = new EngineFallbackOptions
+        {
+            Url = "https://example.test/stockfish-linux-x86-64-universal.tar.gz",
+            Sha256 = hash,
+            Version = "sf_19",
+        };
+
+        var installer = CreateInstaller(
+            db,
+            uri =>
+            {
+                if (uri.AbsolutePath.Contains("releases/latest"))
+                {
+                    return new HttpResponseMessage(HttpStatusCode.InternalServerError);
+                }
+
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(tarGz) };
+            },
+            EnginePlatform.Create(EngineOsKind.Linux, EngineArchKind.X64),
+            options);
+
+        var result = await installer.InstallAsync(null);
+
+        Assert.True(result.Success, result.Error);
+        Assert.Equal("fallback", result.Source);
+        Assert.Equal("stockfish-linux-x86-64-universal", Path.GetFileName(result.EnginePath));
+    }
+
+    [Fact]
+    public async Task Install_LegacyFlatFallback_NotUsedOnOtherPlatform()
+    {
+        await using var db = new TestDatabase();
+
+        var options = new ChessOptions();
+        options.Engine.FallbackUrl = "https://example.test/stockfish-windows-x86-64-universal.zip";
+        options.Engine.FallbackSha256 = new string('a', 64);
+        options.Engine.FallbackVersion = "sf_19";
+
+        var installer = CreateInstaller(
+            db,
+            uri => uri.AbsolutePath.Contains("releases/latest")
+                ? new HttpResponseMessage(HttpStatusCode.InternalServerError)
+                : new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(BuildZip("stockfish.exe")) },
+            EnginePlatform.Create(EngineOsKind.Linux, EngineArchKind.X64),
+            options);
+
+        var result = await installer.InstallAsync(null);
+
+        Assert.False(result.Success);
+        Assert.Contains("无法获取 Stockfish 下载地址", result.Error);
+    }
+
+    [Fact]
     public void FindEngineExecutable_PrefersStockfishExe()
     {
         var dir = Path.Combine(_root, "extract");
@@ -189,5 +356,33 @@ public class EngineInstallerTests : IDisposable
         Directory.CreateDirectory(dir);
 
         Assert.Null(EngineInstaller.FindEngineExecutable(dir));
+    }
+
+    [Fact]
+    public void FindEngineExecutable_LinuxPicksExtensionlessBinary()
+    {
+        var dir = Path.Combine(_root, "extract-unix");
+        Directory.CreateDirectory(dir);
+        File.WriteAllText(Path.Combine(dir, "stockfish-windows-x86-64-universal.exe"), "x");
+        File.WriteAllText(Path.Combine(dir, "stockfish-linux-x86-64-universal"), "x");
+
+        var found = EngineInstaller.FindEngineExecutable(
+            dir,
+            EnginePlatform.Create(EngineOsKind.Linux, EngineArchKind.X64));
+
+        Assert.NotNull(found);
+        Assert.Equal("stockfish-linux-x86-64-universal", Path.GetFileName(found));
+    }
+
+    [Fact]
+    public void DetectArchiveKindByContent_RecognizesZipAndTarGz()
+    {
+        var zipPath = Path.Combine(_root, "a.zip");
+        File.WriteAllBytes(zipPath, BuildZip("stockfish.exe"));
+        Assert.Equal(EngineArchiveKind.Zip, EngineInstaller.DetectArchiveKindByContent(zipPath));
+
+        var tarPath = Path.Combine(_root, "a.tar.gz");
+        File.WriteAllBytes(tarPath, BuildTarGz("stockfish/stockfish-linux-x86-64-universal"));
+        Assert.Equal(EngineArchiveKind.TarGz, EngineInstaller.DetectArchiveKindByContent(tarPath));
     }
 }

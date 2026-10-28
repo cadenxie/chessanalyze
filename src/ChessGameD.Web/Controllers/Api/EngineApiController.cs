@@ -32,6 +32,12 @@ public class EngineApiController : ControllerBase
             status.Path,
             status.Version,
             status.LastError,
+            status.PlatformKey,
+            status.CurrentPlatform,
+            status.PlatformMismatch,
+            platform = _installer.Platform.Key,
+            assetName = _installer.Platform.AssetName,
+            platformSupported = _installer.Platform.IsSupported,
             enginesRoot = _installer.EnginesRoot,
         });
     }
@@ -58,6 +64,7 @@ public class EngineApiController : ControllerBase
             version = result?.Version,
             enginePath = result?.EnginePath,
             sha256 = result?.Sha256,
+            platform = result?.Platform,
         });
     }
 

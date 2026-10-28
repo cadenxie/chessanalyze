@@ -20,6 +20,15 @@ public sealed class EngineStatus
     public string? LastError { get; set; }
     public bool IsReady => State == EngineState.Ready;
     public bool IsInstalled => !string.IsNullOrEmpty(Path);
+
+    /// <summary>引擎安装时的平台键(windows / linux / macos)。</summary>
+    public string? PlatformKey { get; set; }
+
+    /// <summary>当前运行平台,例如「Linux x64」。</summary>
+    public string CurrentPlatform { get; set; } = "";
+
+    /// <summary>已安装的引擎与当前运行平台不一致(例如把 Windows 的引擎搬到 Linux 上)。</summary>
+    public bool PlatformMismatch { get; set; }
 }
 
 public sealed class EngineNotInstalledException : Exception
@@ -59,6 +68,7 @@ public sealed class EngineManager : IHostedService, IAsyncDisposable
 {
     private readonly SettingsStore _settings;
     private readonly ILogger<EngineManager> _logger;
+    private readonly EnginePlatform _platform;
     private readonly SemaphoreSlim _searchLock = new(1, 1);
     private readonly SemaphoreSlim _lifecycleLock = new(1, 1);
 
@@ -66,16 +76,24 @@ public sealed class EngineManager : IHostedService, IAsyncDisposable
     private EngineState _state = EngineState.NotInstalled;
     private string? _lastError;
 
-    public EngineManager(SettingsStore settings, ILogger<EngineManager> logger)
+    public EngineManager(SettingsStore settings, ILogger<EngineManager> logger, EnginePlatform platform)
     {
         _settings = settings;
         _logger = logger;
+        _platform = platform;
     }
+
+    /// <summary>当前运行平台。</summary>
+    public EnginePlatform Platform => _platform;
 
     public async Task<EngineStatus> GetStatusAsync(CancellationToken ct = default)
     {
         var configured = await _settings.GetAsync(SettingsStore.EnginePath, ct);
         var valid = await _settings.GetValidEnginePathAsync(ct);
+        var installedPlatform = await _settings.GetAsync(SettingsStore.EnginePlatformKey, ct);
+
+        var mismatch = !string.IsNullOrEmpty(installedPlatform)
+            && !installedPlatform.Equals(_platform.Key, StringComparison.OrdinalIgnoreCase);
 
         if (valid is null)
         {
@@ -85,6 +103,9 @@ public sealed class EngineManager : IHostedService, IAsyncDisposable
                 Path = configured,
                 Version = await _settings.GetAsync(SettingsStore.EngineVersion, ct),
                 LastError = await _settings.GetAsync(SettingsStore.EngineLastError, ct),
+                PlatformKey = installedPlatform,
+                CurrentPlatform = _platform.DisplayName,
+                PlatformMismatch = mismatch,
             };
         }
 
@@ -94,6 +115,9 @@ public sealed class EngineManager : IHostedService, IAsyncDisposable
             Path = valid,
             Version = _client?.EngineName ?? await _settings.GetAsync(SettingsStore.EngineVersion, ct),
             LastError = _lastError ?? await _settings.GetAsync(SettingsStore.EngineLastError, ct),
+            PlatformKey = installedPlatform,
+            CurrentPlatform = _platform.DisplayName,
+            PlatformMismatch = mismatch,
         };
     }
 
@@ -256,6 +280,12 @@ public sealed class EngineManager : IHostedService, IAsyncDisposable
                     "尚未安装 Stockfish 引擎,请先到设置页点击「一键安装 Stockfish」。");
             }
 
+            // Linux / macOS 上引擎文件必须带执行位,zip 解压会把 x 位丢掉,这里补一下
+            if (!EngineFile.HasExecutablePermission(path))
+            {
+                EngineFile.EnsureExecutable(path);
+            }
+
             if (_client is not null)
             {
                 await _client.DisposeAsync();
@@ -340,10 +370,17 @@ public sealed class EngineManager : IHostedService, IAsyncDisposable
             var enginesRoot = Path.Combine(AppContext.BaseDirectory, "App_Data", "engines");
             var candidates = new[] { enginesRoot, Path.Combine(Directory.GetCurrentDirectory(), "App_Data", "engines") };
 
-            foreach (var proc in Process.GetProcessesByName("stockfish"))
+            foreach (var proc in Process.GetProcesses())
             {
                 try
                 {
+                    // Linux 上进程名会被截断到 15 个字符(stockfish-linux-x86-64-universal
+                    // → "stockfish-linux"),所以按前缀匹配而不是全名匹配。
+                    if (!proc.ProcessName.StartsWith("stockfish", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
                     var file = proc.MainModule?.FileName;
                     if (file is null)
                     {

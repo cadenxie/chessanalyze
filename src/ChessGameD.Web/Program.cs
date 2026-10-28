@@ -39,6 +39,8 @@ builder.Services.AddHttpClient("stockfish", client =>
 });
 
 // ---- 应用服务 ----
+// 运行环境(系统 + 架构)决定下载哪个 Stockfish 发行包,整个进程共用一份
+builder.Services.AddSingleton<EnginePlatform>(_ => EnginePlatform.Detect());
 builder.Services.AddSingleton<SettingsStore>();
 builder.Services.AddSingleton<EngineManager>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<EngineManager>());

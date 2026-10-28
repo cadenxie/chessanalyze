@@ -11,6 +11,9 @@ public class SettingsStore
     public const string EnginePath = "Engine.Path";
     public const string EngineVersion = "Engine.Version";
     public const string EngineInstalledAt = "Engine.InstalledAt";
+
+    /// <summary>引擎安装时的平台键(windows / linux / macos),用于检测跨平台搬运的引擎。</summary>
+    public const string EnginePlatformKey = "Engine.PlatformKey";
     public const string EngineThreads = "Engine.Threads";
     public const string EngineHashMb = "Engine.HashMb";
     public const string EngineMultiPv = "Engine.MultiPv";
