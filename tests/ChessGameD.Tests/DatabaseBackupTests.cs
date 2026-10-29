@@ -1,4 +1,5 @@
 using ChessGameD.Web.Data;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
@@ -83,5 +84,27 @@ public sealed class DatabaseBackupTests : IDisposable
         var backup = await DatabaseBackup.BackupAsync(missing, NullLogger.Instance);
 
         Assert.Null(backup);
+    }
+
+    [Fact]
+    public async Task 备份_结束后旧库文件可以删除_不会残留文件句柄()
+    {
+        var dbPath = Path.Combine(_dir, "locked.db");
+
+        // 直接用原生连接建一个库(关掉连接池),排除 EF 自己的连接池干扰
+        await using (var conn = new SqliteConnection($"Data Source={dbPath};Pooling=False"))
+        {
+            await conn.OpenAsync();
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = "CREATE TABLE demo (Id INTEGER PRIMARY KEY); INSERT INTO demo (Id) VALUES (1);";
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        var backup = await DatabaseBackup.BackupAsync(dbPath, NullLogger.Instance);
+        Assert.NotNull(backup);
+
+        // 备份用的连接池会让文件删不掉,后面「删库重建」就会失败
+        File.Delete(dbPath);
+        Assert.False(File.Exists(dbPath));
     }
 }

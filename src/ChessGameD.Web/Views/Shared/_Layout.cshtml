@@ -1,6 +1,7 @@
 ﻿@using ChessGameD.Web
 @using ChessGameD.Web.Models
 @inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+@inject ChessGameD.Web.Services.App.GitInfo GitInfo
 @{
     var title = ViewData["Title"] as string ?? "国际象棋复盘";
     var controller = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
@@ -33,6 +34,8 @@
             <a href="/Settings/Index" class="@(controller == "Settings" ? "active" : "")">设置</a>
             <a href="/Admin/Users" class="@(controller == "Users" ? "active" : "")">用户</a>
         }
+        @* 源码入口:跳到 GitHub 仓库 *@
+        <a class="repo-btn" href="@GitInfo.RepositoryUrl" target="_blank" rel="noopener" title="项目源码仓库:@GitInfo.RepositoryUrl">GitHub</a>
     </nav>
     <div class="spacer"></div>
     @if (signedIn)
@@ -49,6 +52,8 @@
         <a href="/Account/Register" class="small">注册</a>
     }
     <span id="engine-indicator" class="badge">引擎状态加载中…</span>
+    @* Git 信息角标:分支 + 短提交号,点进去是这一版的提交详情 *@
+    <a id="git-info" class="badge git-badge" href="@GitInfo.CommitUrl" target="_blank" rel="noopener" title="@GitInfo.Tooltip">@GitInfo.DisplayText</a>
 </header>
 
 <main class="container @(ViewData["ContainerClass"] as string)">
@@ -59,6 +64,7 @@
     本地单机复盘工具 · 引擎 <a href="https://stockfishchess.org/" target="_blank" rel="noopener">Stockfish</a> (GPL-3.0, 独立进程)
     · 前端 <a href="https://github.com/jhlywa/chess.js" target="_blank" rel="noopener">chess.js</a> (BSD-2-Clause)
     / <a href="https://github.com/shaack/cm-chessboard" target="_blank" rel="noopener">cm-chessboard</a> (MIT, 棋子 CC BY-SA 3.0)
+    · 源码 <a href="@GitInfo.RepositoryUrl" target="_blank" rel="noopener">GitHub</a>
 </footer>
 
 <script src="~/js/app.js"></script>

@@ -203,6 +203,20 @@ public class IntegrationTests : IDisposable
         client.Dispose();
     }
 
+    [Fact]
+    public async Task Home_TopBar_LinksToGithubRepository()
+    {
+        using var session = WebSession.Create(_factory);
+        var response = await session.GetAsync("/Home/Index");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var html = await response.Content.ReadAsStringAsync();
+        // 顶部菜单里的 GitHub 按钮 + Git 信息角标(分支 / 提交号)
+        Assert.Contains("class=\"repo-btn\"", html);
+        Assert.Contains("href=\"https://github.com/cadenxie/chessanalyze\"", html);
+        Assert.Contains("id=\"git-info\"", html);
+    }
+
     private sealed class ImportResponse
     {
         public int BatchId { get; set; }

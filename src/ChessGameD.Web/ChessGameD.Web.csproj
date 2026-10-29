@@ -16,4 +16,90 @@
     <PackageReference Include="Microsoft.Extensions.Identity.Core" Version="8.0.32" />
   </ItemGroup>
 
+  <!--
+    读取仓库的 Git 信息(分支 + 短提交号),写进程序集元数据,页面顶部显示。
+    直接读 .git 目录里的文本文件,不依赖 git 可执行文件;读不到就留空,不影响构建。
+  -->
+  <UsingTask TaskName="ReadGitInfoTask" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <GitDir ParameterType="System.String" Required="true" />
+      <Branch Output="true" />
+      <Commit Output="true" />
+    </ParameterGroup>
+    <Task>
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        var dir = GitDir;
+        var branch = "";
+        var commit = "";
+        try
+        {
+            // HEAD 要么指向一个分支(ref: refs/heads/main),要么就是提交号(分离头指针)
+            var head = File.ReadAllText(Path.Combine(dir, "HEAD")).Trim();
+            if (head.StartsWith("ref: "))
+            {
+                var refName = head.Substring(5).Trim();
+                branch = Path.GetFileName(refName);
+
+                var loose = Path.Combine(dir, refName.Replace('/', Path.DirectorySeparatorChar));
+                if (File.Exists(loose))
+                {
+                    commit = File.ReadAllText(loose).Trim();
+                }
+                else
+                {
+                    // 分支被 gc 之后引用会挪到 packed-refs 里
+                    var packed = Path.Combine(dir, "packed-refs");
+                    if (File.Exists(packed))
+                    {
+                        foreach (var line in File.ReadAllLines(packed))
+                        {
+                            var parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                            if (parts.Length == 2 && parts[1] == refName)
+                            {
+                                commit = parts[0];
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            else
+            {
+                commit = head;
+            }
+        }
+        catch (Exception)
+        {
+            // 读不到就留空,不影响构建
+        }
+
+        if (commit.Length > 8)
+        {
+            commit = commit.Substring(0, 8);
+        }
+
+        Branch = branch;
+        Commit = commit;
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="ReadGitMetadata" BeforeTargets="GetAssemblyAttributes">
+    <PropertyGroup>
+      <RepoRoot>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/../../'))</RepoRoot>
+      <GitDir>$(RepoRoot).git</GitDir>
+    </PropertyGroup>
+
+    <ReadGitInfoTask GitDir="$(GitDir)">
+      <Output TaskParameter="Branch" PropertyName="GitBranch" />
+      <Output TaskParameter="Commit" PropertyName="GitCommit" />
+    </ReadGitInfoTask>
+
+    <ItemGroup>
+      <AssemblyMetadata Include="GitRepository" Value="https://github.com/cadenxie/chessanalyze" />
+      <AssemblyMetadata Include="GitBranch" Value="$(GitBranch)" />
+      <AssemblyMetadata Include="GitCommit" Value="$(GitCommit)" />
+    </ItemGroup>
+  </Target>
+
 </Project>

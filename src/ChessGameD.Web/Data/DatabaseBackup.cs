@@ -35,7 +35,9 @@ public static class DatabaseBackup
             var target = Path.Combine(dir, $"chessgame-{DateTime.Now:yyyyMMdd-HHmmss}.db");
 
             // VACUUM INTO 会把 WAL 里的数据一起带过去,比直接复制文件可靠
-            await using var conn = new SqliteConnection($"Data Source={dbPath}");
+            // 连接串里关掉连接池:池里的连接会一直攥着库文件句柄,
+            // 后面删库重建的时候就会报「文件被其他进程占用」
+            await using var conn = new SqliteConnection($"Data Source={dbPath};Pooling=False");
             await conn.OpenAsync(ct);
             await using var cmd = conn.CreateCommand();
             cmd.CommandText = "VACUUM INTO $target";

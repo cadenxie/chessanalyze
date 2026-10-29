@@ -1,8 +1,10 @@
 using ChessGameD.Web.Data;
 using ChessGameD.Web.Services.Analysis;
+using ChessGameD.Web.Services.App;
 using ChessGameD.Web.Services.Auth;
 using ChessGameD.Web.Services.Engine;
 using ChessGameD.Web.Services.Pgn;
+using Microsoft.Data.Sqlite;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
@@ -111,6 +113,9 @@ builder.Services.AddSingleton<EngineInstaller>();
 builder.Services.AddSingleton<PgnImportService>();
 builder.Services.AddSingleton<GameAnalyzer>();
 
+// 项目 Git 信息(分支 + 提交号),构建时写进程序集元数据
+builder.Services.AddSingleton(GitInfo.FromAssembly(typeof(Program).Assembly));
+
 // 账号模块
 builder.Services.AddScoped<CurrentUser>();
 builder.Services.AddScoped<AccountService>();
@@ -136,6 +141,7 @@ await using (var scope = app.Services.CreateAsyncScope())
     }
     else
     {
+        var schemaOk = true;
         try
         {
             // 探测表结构是否匹配;不匹配(例如换了 schema)则重建
@@ -144,8 +150,17 @@ await using (var scope = app.Services.CreateAsyncScope())
         }
         catch (Exception)
         {
+            schemaOk = false;
+        }
+
+        if (!schemaOk)
+        {
             // 重建会把旧库删掉,先备份一份
             await DatabaseBackup.BackupAsync(dbPath, startupLogger);
+
+            // 连接池里的连接还攥着库文件句柄,不清理掉就删不掉(会报「文件被占用」)
+            SqliteConnection.ClearAllPools();
+
             await db.Database.EnsureDeletedAsync();
             await db.Database.EnsureCreatedAsync();
         }

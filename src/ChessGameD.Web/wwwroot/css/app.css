@@ -50,6 +50,30 @@ a:hover { text-decoration: underline; }
 .topbar nav a:hover, .topbar nav a.active { color: var(--text); text-decoration: none; }
 .topbar .spacer { flex: 1; }
 
+/* 顶部的源码按钮:跳到 GitHub 仓库 */
+.topbar nav a.repo-btn {
+    display: inline-block;
+    margin-right: 0;
+    padding: 4px 12px;
+    font-size: 13px;
+    color: var(--text);
+    background: var(--bg-panel-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+}
+.topbar nav a.repo-btn:hover {
+    color: var(--accent-2);
+    border-color: var(--accent);
+    text-decoration: none;
+}
+
+/* Git 信息角标:分支 + 短提交号 */
+.topbar a.git-badge {
+  color: var(--text-dim);
+  font-family: Consolas, "Cascadia Mono", monospace;
+}
+.topbar a.git-badge:hover { color: var(--accent-2); text-decoration: none; border-color: var(--accent); }
+
 .container { max-width: 1360px; margin: 0 auto; padding: 20px; }
 .container.narrow { max-width: 900px; }
 
