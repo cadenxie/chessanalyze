@@ -118,6 +118,12 @@ dotnet run --project src\ChessGameD.Web
 - **停用即时生效**:管理员停用某个账号后,对方已登录的会话在下一次请求时就会被踢出。
 - **忘记密码**:没有邮件找回(邮箱本来就不是必填),由管理员在「用户管理」页重置并线下告知;重置时会生成一个一次性临时密码。
 
+### 引擎信息的可见范围
+
+- 首页的「引擎状态」卡片只显示状态、版本、运行平台;**引擎可执行文件的绝对路径只对管理员显示**,普通用户与匿名访客看不到。
+- 状态接口 `/api/engine/status` 也会按角色裁剪:非管理员拿到的 `path` / `enginesRoot` / `lastError` 都是 null。
+- 安装类的接口(`/api/engine/install`、`/api/engine/install/status`、`/api/engine/test`)只对管理员开放。
+
 ### 顶部菜单的 Git 信息
 
 - 顶部导航里有个 **GitHub** 按钮,点进去就是项目仓库:<https://github.com/cadenxie/chessanalyze>。

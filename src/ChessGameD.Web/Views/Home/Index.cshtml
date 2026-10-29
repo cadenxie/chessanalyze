@@ -12,8 +12,12 @@
                 <div><span id="engine-state" class="badge">加载中…</span></div>
                 <div class="k">版本</div>
                 <div id="engine-version" class="mono">—</div>
-                <div class="k">路径</div>
-                <div id="engine-path" class="mono small">—</div>
+                @if (Model.IsAdmin)
+                {
+                    @* 引擎路径属于服务器内部信息,只有管理员看得到 *@
+                    <div class="k">路径</div>
+                    <div id="engine-path" class="mono small">—</div>
+                }
                 <div class="k">运行平台</div>
                 <div id="engine-platform" class="mono small">—</div>
             </div>

@@ -20,9 +20,12 @@
                 : status.state === 'NotInstalled' ? 'warn'
                 : status.state === 'Faulted' ? 'bad' : '');
             versionEl.textContent = status.version || '—';
-            pathEl.textContent = status.path || '—';
-            if (status.lastError) {
-                pathEl.title = status.lastError;
+            // 路径只有管理员看得到(元素不存在时直接跳过)
+            if (pathEl) {
+                pathEl.textContent = status.path || '—';
+                if (status.lastError) {
+                    pathEl.title = status.lastError;
+                }
             }
 
             var platformEl = document.getElementById('engine-platform');

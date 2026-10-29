@@ -1,6 +1,8 @@
 using ChessGameD.Web.Data;
 using ChessGameD.Web.Models;
+using ChessGameD.Web.Services.Auth;
 using ChessGameD.Web.Services.Engine;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ChessGameD.Web.Controllers.Api;
@@ -12,38 +14,51 @@ public class EngineApiController : ControllerBase
     private readonly EngineManager _engine;
     private readonly EngineInstaller _installer;
     private readonly SettingsStore _settings;
+    private readonly CurrentUser _current;
 
-    public EngineApiController(EngineManager engine, EngineInstaller installer, SettingsStore settings)
+    public EngineApiController(
+        EngineManager engine,
+        EngineInstaller installer,
+        SettingsStore settings,
+        CurrentUser current)
     {
         _engine = engine;
         _installer = installer;
         _settings = settings;
+        _current = current;
     }
 
+    /// <summary>
+    /// 引擎状态。引擎可执行文件的绝对路径、引擎根目录和错误明细只发给管理员,
+    /// 普通访客与匿名用户拿不到这些可能暴露服务器目录结构的信息。
+    /// </summary>
     [HttpGet("status")]
     public async Task<IActionResult> Status(CancellationToken ct)
     {
         var status = await _engine.GetStatusAsync(ct);
+        var isAdmin = _current.IsAdmin;
+
         return Ok(new
         {
             state = status.State.ToString(),
             status.IsInstalled,
             status.IsReady,
-            status.Path,
+            path = isAdmin ? status.Path : null,
             status.Version,
-            status.LastError,
+            lastError = isAdmin ? status.LastError : null,
             status.PlatformKey,
             status.CurrentPlatform,
             status.PlatformMismatch,
             platform = _installer.Platform.Key,
             assetName = _installer.Platform.AssetName,
             platformSupported = _installer.Platform.IsSupported,
-            enginesRoot = _installer.EnginesRoot,
+            enginesRoot = isAdmin ? _installer.EnginesRoot : null,
         });
     }
 
     /// <summary>一键安装/更新 Stockfish(后台执行,立即返回作业号)。</summary>
     [HttpPost("install")]
+    [Authorize(Policy = "AdminOnly")]
     [ValidateAntiForgeryToken]
     public IActionResult Install()
     {
@@ -52,6 +67,7 @@ public class EngineApiController : ControllerBase
     }
 
     [HttpGet("install/status")]
+    [Authorize(Policy = "AdminOnly")]
     public IActionResult InstallStatus([FromQuery] string jobId)
     {
         var (progress, result) = _installer.GetInstallStatus(jobId);
@@ -124,6 +140,7 @@ public class EngineApiController : ControllerBase
 
     /// <summary>测试引擎连接。</summary>
     [HttpPost("test")]
+    [Authorize(Policy = "AdminOnly")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Test(CancellationToken ct)
     {
