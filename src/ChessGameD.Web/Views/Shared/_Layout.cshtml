@@ -53,7 +53,7 @@
     }
     <span id="engine-indicator" class="badge">引擎状态加载中…</span>
     @* Git 信息角标:分支 + 短提交号,点进去是这一版的提交详情 *@
-    <a id="git-info" class="badge git-badge" href="@GitInfo.CommitUrl" target="_blank" rel="noopener" title="@GitInfo.Tooltip">@GitInfo.DisplayText</a>
+    @* <a id="git-info" class="badge git-badge" href="@GitInfo.CommitUrl" target="_blank" rel="noopener" title="@GitInfo.Tooltip">@GitInfo.DisplayText</a> *@
 </header>
 
 <main class="container @(ViewData["ContainerClass"] as string)">

@@ -211,10 +211,10 @@ public class IntegrationTests : IDisposable
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var html = await response.Content.ReadAsStringAsync();
-        // 顶部菜单里的 GitHub 按钮 + Git 信息角标(分支 / 提交号)
+        // 顶部菜单里的 GitHub 按钮(Git 信息角标已按使用习惯去掉,不应再出现)
         Assert.Contains("class=\"repo-btn\"", html);
         Assert.Contains("href=\"https://github.com/cadenxie/chessanalyze\"", html);
-        Assert.Contains("id=\"git-info\"", html);
+        Assert.DoesNotContain("id=\"git-info\"", html);
     }
 
     private sealed class ImportResponse
