@@ -1,0 +1,61 @@
+@model ChessGameD.Web.Models.ProfileViewModel
+@{
+    ViewData["Title"] = "我的账号";
+    var changed = Context.Request.Query["changed"].ToString() == "1";
+    var force = Context.Request.Query["force"].ToString() == "1";
+}
+
+<div class="row wrap">
+    <div class="col" style="max-width: 460px;">
+        <div class="panel">
+            <h2>我的账号</h2>
+
+            @if (Model.MustChangePassword || force)
+            {
+                <p class="small" style="color:#e8a;">这个账号必须先修改密码才能继续使用。</p>
+            }
+
+            @if (changed)
+            {
+                <p class="small" style="color:#7fd;">密码已修改。</p>
+            }
+
+            <div class="kv">
+                <div class="k">账号名</div>
+                <div class="mono">@Model.UserName</div>
+                <div class="k">邮箱</div>
+                <div class="mono small">@(Model.Email ?? "—")</div>
+                <div class="k">角色</div>
+                <div>@(Model.IsAdmin ? "管理员" : "普通账号")</div>
+                <div class="k">我的棋局</div>
+                <div>@Model.GameCount</div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>修改密码</h2>
+
+            @if (!string.IsNullOrEmpty(Model.Error))
+            {
+                <p class="small" style="color:#e88;">@Model.Error</p>
+            }
+
+            <form method="post" action="/Account/Profile">
+                @Html.AntiForgeryToken()
+                <label class="field">
+                    <span>原密码</span>
+                    <input type="password" name="OldPassword" autocomplete="current-password" />
+                </label>
+                <label class="field">
+                    <span>新密码(至少 6 位)</span>
+                    <input type="password" name="NewPassword" autocomplete="new-password" />
+                </label>
+                <label class="field">
+                    <span>确认新密码</span>
+                    <input type="password" name="ConfirmPassword" autocomplete="new-password" />
+                </label>
+                <button class="primary" type="submit">保存新密码</button>
+            </form>
+        </div>
+    </div>
+</div>

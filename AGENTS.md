@@ -17,16 +17,18 @@ ASP.NET Core MVC / .NET 8 / SQLite,前端零 npm 构建。只做复盘分析主�
 ## Project layout
 
 - `src/ChessGameD.Web/` — ASP.NET Core MVC 站点,唯一可部署项目
-  - `Controllers/` — 页面控制器(Home / Games / Settings)与 `Api/` 下的 JSON 接口
-  - `Services/Engine/` — UCI 引擎客户端、引擎管理、一键安装(自研,不用第三方 UCI 包)
+  - `Controllers/` — 页面控制器(Home / Games / Settings / Account)与 `Api/` 下的 JSON 接口
+    - `Controllers/Admin/` — 管理员的用户管理页
+  - `Services/Engine/` — UCI 引擎客户端、引擎管理、先进先出分析队列、一键安装(自研,不用第三方 UCI 包)
   - `Services/Analysis/` — 走子分类、UCI→SAN 转换、整局分析作业
+  - `Services/Auth/` — 账号(注册/登录/改密)、密码哈希、归属过滤、匿名会话与定时清理
   - `Services/Pgn/` — PGN 清洗与导入
   - `Services/Reports/` — HTML / 纯文本报告生成
   - `Data/` — EF Core 实体、DbContext、键值配置存储
   - `Models/` `Views/` `wwwroot/` — 视图模型、Razor 页面、前端资源
   - `App_Data/` — **运行时数据,已 gitignore**:SQLite 库 + 下载解压的 Stockfish
   - `wwwroot/lib/` — vendored 的 chess.js / cm-chessboard,**要进版本库**(自带 LICENSE)
-- `tests/ChessGameD.Tests/` — xUnit 测试(91 个用例)
+- `tests/ChessGameD.Tests/` — xUnit 测试(164 个用例)
 - `tests/ChessGameD.FakeEngine/` — 假 UCI 引擎,给测试用的独立控制台程序
 - `samples/example.pgn` — 示例 PGN
 - `.vscode/` — 团队共享的调试与任务配置,**不要忽略**
@@ -42,11 +44,15 @@ ASP.NET Core MVC / .NET 8 / SQLite,前端零 npm 构建。只做复盘分析主�
 
 ## Testing instructions
 
-- 全部测试: `dotnet test ChessGameD.sln`(xUnit,91 个用例)
+- 全部测试: `dotnet test ChessGameD.sln`(xUnit,164 个用例)
 - 单个测试类: `dotnet test tests\ChessGameD.Tests\ChessGameD.Tests.csproj --filter "FullyQualifiedName~PgnImportTests"`
 - 测试命名 `方法_场景_预期`,例如 `Import_SingleGame_StoresGameAndMoves`
 - 改了 `Services/` 下的逻辑就要补对应用例;导入、分类、报告这三块最容易回归
 - 提交前全部用例必须通过
+- 账号模块的用例分几个类:`AccountTests`(注册登录改密)、`OwnershipIsolationTests`(用户之间互相看不到)、
+  `AnonymousSessionTests`(匿名会话)、`AdminSettingsTests`(权限与种子管理员)、`AnonymousCleanupTests`(匿名数据清理)、
+  `FifoGateTests`(引擎队列)
+- 断言页面里的中文前要先 `WebUtility.HtmlDecode`:Razor 默认把非 ASCII 字符转成数字实体
 
 ## Key constraints
 
@@ -61,6 +67,15 @@ ASP.NET Core MVC / .NET 8 / SQLite,前端零 npm 构建。只做复盘分析主�
 - **引擎以独立进程通过 UCI 文本协议交互**,不链接、不分发 Stockfish;`UciEngineClient` 用 Channel 管道 + 单写锁,改它要保证能中断 `stop`
 - 漏着判定阈值目前写死(走子前优势 ≥ +1.5、走完优势 ≤ +0.3),不是配置项
 - 一键安装按当前运行平台(系统 + 架构)选官方包:Windows 是 zip,Linux / macOS 是 tar.gz;官方没有的架构需自行指定引擎路径
+- **归属过滤走显式谓词,不用 EF 全局查询过滤器**:整局分析是 singleton,后台作业会把请求的 `HttpContext` 一起带走,
+  用全局过滤器会踩到已回收的 `HttpContext`;新增按 id 取棋局的入口必须先过 `Owned()`(`Services/Auth/GameOwnership.cs`),
+  跨用户一律 404
+- **所有写操作要过防伪 token**:MVC 动作加 `[ValidateAntiForgeryToken]`,表单加 `@Html.AntiForgeryToken()`,
+  前端统一在 `CG.fetchJson` 里带 `RequestVerificationToken` 头
+- **匿名会话 Cookie 是会话级的**(关掉浏览器就没了),只在本次会话内有效;登录时把本次会话的棋局转给账号
+- **管理员种子口令只由部署者注入**(`appsettings.Local.json` 或 `Chess__Admin__*` 环境变量),仓库里不留明文
+- **引擎只有一份,分析请求排先进先出队列**(`Services/Engine/FifoGate.cs`):整局分析与即时分析共用一条队列,
+  排队时显示位次,不要改回「引擎忙」报错
 
 ## Commit conventions
 
@@ -72,6 +87,7 @@ ASP.NET Core MVC / .NET 8 / SQLite,前端零 npm 构建。只做复盘分析主�
 ## Security
 
 - 绝不提交 `App_Data/`(含 SQLite 库与引擎二进制)、`.env` 或任何密钥
+- `appsettings.Local.json` 已 gitignore:真实口令只留在本机,不要提交
 - 一键安装只从 GitHub 官方发行版下载并校验 SHA-256,不要换成第三方镜像
 - 不要把 Stockfish 源码或可执行文件塞进版本库
 - 本地数据库里的棋谱是用户私有数据,别提交测试导出的真实数据

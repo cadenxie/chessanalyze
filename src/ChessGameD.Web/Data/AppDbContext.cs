@@ -11,6 +11,7 @@ public class AppDbContext : DbContext
     public DbSet<Analysis> Analyses => Set<Analysis>();
     public DbSet<ImportBatch> ImportBatches => Set<ImportBatch>();
     public DbSet<AppSetting> Settings => Set<AppSetting>();
+    public DbSet<User> Users => Set<User>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -20,10 +21,24 @@ public class AppDbContext : DbContext
             b.HasIndex(g => new { g.White, g.Black });
             b.HasIndex(g => g.Date);
             b.HasIndex(g => g.ImportBatchId);
+            b.HasIndex(g => g.OwnerUserId);
+            b.HasIndex(g => g.OwnerAnonKey);
             b.HasOne(g => g.ImportBatch)
                 .WithMany(b => b.Games)
                 .HasForeignKey(g => g.ImportBatchId)
                 .OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(g => g.OwnerUser)
+                .WithMany(u => u.Games)
+                .HasForeignKey(g => g.OwnerUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<User>(b =>
+        {
+            b.ToTable("Users");
+            b.HasIndex(u => u.UserName).IsUnique();
+            // 邮箱可空:SQLite 里多个 NULL 不算重复,所以可空字段照样能建唯一索引
+            b.HasIndex(u => u.Email).IsUnique();
         });
 
         modelBuilder.Entity<GameMove>(b =>

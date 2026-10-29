@@ -1,14 +1,20 @@
 ﻿@using ChessGameD.Web
 @using ChessGameD.Web.Models
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
 @{
     var title = ViewData["Title"] as string ?? "国际象棋复盘";
     var controller = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
+    var isAdmin = User.IsInRole("Admin");
+    var signedIn = User.Identity?.IsAuthenticated == true;
+    // 写操作的防伪 token:前端统一从这里取,放进请求头
+    var csrfToken = Antiforgery.GetAndStoreTokens(Context).RequestToken ?? "";
 }
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="csrf-token" content="@csrfToken" />
     <title>@title · ChessGameD</title>
     <link rel="stylesheet" href="~/lib/cm-chessboard/assets/chessboard.css" />
     @* 扩展的样式要单独引入:箭头的线条颜色/箭头头部都在这里,少了它箭头就画不出来 *@
@@ -21,9 +27,27 @@
     <nav>
         <a href="/Home/Index" class="@(controller == "Home" ? "active" : "")">首页</a>
         <a href="/Games/Index" class="@(controller == "Games" ? "active" : "")">棋局</a>
-        <a href="/Settings/Index" class="@(controller == "Settings" ? "active" : "")">设置</a>
+        @* 设置页只有管理员能进,菜单也跟着一起隐藏 *@
+        @if (isAdmin)
+        {
+            <a href="/Settings/Index" class="@(controller == "Settings" ? "active" : "")">设置</a>
+            <a href="/Admin/Users" class="@(controller == "Users" ? "active" : "")">用户</a>
+        }
     </nav>
     <div class="spacer"></div>
+    @if (signedIn)
+    {
+        <a href="/Account/Profile" class="small">@User.Identity!.Name</a>
+        <form method="post" action="/Account/Logout" style="display:inline;">
+            @Html.AntiForgeryToken()
+            <button type="submit" class="small">退出</button>
+        </form>
+    }
+    else
+    {
+        <a href="/Account/Login" class="small">登录</a>
+        <a href="/Account/Register" class="small">注册</a>
+    }
     <span id="engine-indicator" class="badge">引擎状态加载中…</span>
 </header>
 

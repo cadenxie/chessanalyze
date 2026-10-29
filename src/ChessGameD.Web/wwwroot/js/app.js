@@ -16,7 +16,23 @@ window.CG = (function () {
         return el;
     }
 
+    /* 防伪 token:写操作要带上,否则会被服务端拒绝 */
+    function csrfToken() {
+        var el = document.querySelector('meta[name="csrf-token"]');
+        return el ? (el.getAttribute('content') || '') : '';
+    }
+
     async function fetchJson(url, options) {
+        options = options || {};
+        var method = (options.method || 'GET').toUpperCase();
+        if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+            options.headers = options.headers || {};
+            var token = csrfToken();
+            if (token) {
+                options.headers['RequestVerificationToken'] = token;
+            }
+        }
+
         var response = await fetch(url, options);
         var text = await response.text();
         var data = null;
@@ -92,6 +108,7 @@ window.CG = (function () {
     return {
         toast: toast,
         fetchJson: fetchJson,
+        csrfToken: csrfToken,
         formatScore: formatScore,
         escapeHtml: escapeHtml,
         readJsonScript: readJsonScript,

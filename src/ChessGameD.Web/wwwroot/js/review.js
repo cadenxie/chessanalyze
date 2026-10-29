@@ -570,13 +570,15 @@ async function pollAnalysis(bar, status) {
     try {
         const job = await CG.fetchJson('/api/games/' + gameId + '/analysis/status');
         bar.style.width = (job.percent || 0) + '%';
-        status.textContent = job.state === 'running'
+        status.textContent = job.state === 'queued'
+            ? '排队中(第 ' + (job.queuePosition || 1) + ' 位' + (job.queueWaiting > 1 ? ',共 ' + job.queueWaiting + ' 个任务' : '') + ')…'
+            : job.state === 'running'
             ? '分析中 ' + job.done + ' / ' + job.total + ' 个局面(' + (job.percent || 0) + '%)'
             : (job.state === 'done' ? '分析完成。'
                 : job.state === 'cancelled' ? '已停止。已完成的局面已保存。'
                 : '失败:' + (job.error || '未知错误'));
 
-        if (job.state === 'running') {
+        if (job.state === 'running' || job.state === 'queued') {
             setTimeout(function () { pollAnalysis(bar, status); }, 1000);
             return;
         }

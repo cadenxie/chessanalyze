@@ -1,0 +1,92 @@
+@model ChessGameD.Web.Models.AdminUsersViewModel
+@{
+    ViewData["Title"] = "用户管理";
+    var temp = Context.Request.Query["temp"].ToString();
+    var error = Context.Request.Query["error"].ToString();
+}
+
+<div class="panel">
+    <h2>用户管理</h2>
+
+    @if (!string.IsNullOrEmpty(error))
+    {
+        <p class="small" style="color:#e88;">@error</p>
+    }
+
+    @if (!string.IsNullOrEmpty(temp))
+    {
+        <p class="small" style="color:#7fd;">
+            临时密码:<span class="mono">@temp</span>(只显示这一次,请转告用户后尽快让 TA 修改)
+        </p>
+    }
+
+    <table class="games">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>账号名</th>
+                <th>邮箱</th>
+                <th>角色</th>
+                <th>状态</th>
+                <th>棋局</th>
+                <th>注册时间</th>
+                <th>最后登录</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var u in Model.Users)
+            {
+                <tr>
+                    <td>@u.Id</td>
+                    <td class="mono">@u.UserName</td>
+                    <td class="small">@(u.Email ?? "—")</td>
+                    <td>@(u.IsAdmin ? "管理员" : "普通")</td>
+                    <td>
+                        @if (u.IsEnabled)
+                        {
+                            <span class="badge ok">启用</span>
+                        }
+                        else
+                        {
+                            <span class="badge bad">停用</span>
+                        }
+                        @if (u.MustChangePassword)
+                        {
+                            <span class="badge warn">待改密</span>
+                        }
+                    </td>
+                    <td>@u.GameCount</td>
+                    <td class="small muted">@u.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                    <td class="small muted">@(u.LastLoginAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                    <td>
+                        <div class="row" style="gap:6px; align-items:center;">
+                            <form method="post" action="/Admin/Users/ToggleEnabled">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@u.Id" />
+                                <button type="submit">@(u.IsEnabled ? "停用" : "启用")</button>
+                            </form>
+                            <form method="post" action="/Admin/Users/ResetPassword">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@u.Id" />
+                                <button type="submit">重置密码</button>
+                            </form>
+                            <form method="post" action="/Admin/Users/SetRole">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@u.Id" />
+                                <input type="hidden" name="isAdmin" value="@((!u.IsAdmin).ToString().ToLowerInvariant())" />
+                                <button type="submit">@(u.IsAdmin ? "取消管理员" : "设为管理员")</button>
+                            </form>
+                            <form method="post" action="/Admin/Users/Delete"
+                                  onsubmit="return confirm('确定删除账号 @u.UserName 及其全部棋局?');">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@u.Id" />
+                                <button class="danger" type="submit">删除</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

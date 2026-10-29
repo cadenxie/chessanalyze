@@ -29,9 +29,29 @@ dotnet run --project src\ChessGameD.Web
 
 首次使用:
 
-1. 打开 **设置** 页 → 点「下载并安装 / 更新」,等进度条走完(下载 → 校验 SHA-256 → 解压 → 启动验证)。
-2. 回到首页,上传 `.pgn` 文件或直接粘贴 PGN 文本。项目里带了一个示例:`samples/example.pgn`(三局经典名局)。
-3. 在棋局列表点进去,用棋盘/走法列表复盘;点「分析本局」跑引擎评估。
+1. 先把管理员账号配好(见下面的「管理员账号」),否则进不了设置页。
+2. 打开 **设置** 页 → 点「下载并安装 / 更新」,等进度条走完(下载 → 校验 SHA-256 → 解压 → 启动验证)。
+3. 回到首页,上传 `.pgn` 文件或直接粘贴 PGN 文本。项目里带了一个示例:`samples/example.pgn`(三局经典名局)。
+4. 在棋局列表点进去,用棋盘/走法列表复盘;点「分析本局」跑引擎评估。
+
+### 管理员账号
+
+设置页(引擎安装、路径、线程数等)只对管理员开放。管理员账号由部署者注入,仓库里不存明文口令:
+
+```jsonc
+// src/ChessGameD.Web/appsettings.Local.json(已 gitignore,只留在本机)
+{
+  "Chess": {
+    "Admin": { "Username": "admin", "Password": "换成你自己的口令" }
+  }
+}
+```
+
+也可以用环境变量:`Chess__Admin__Username=admin`、`Chess__Admin__Password=...`。
+
+- 启动时如果 `Users` 表是空的(首次启动),就按配置建一个管理员,**首次登录会强制改密**。
+- 已经存在同名账号时不会覆盖它的口令;想补建管理员可以执行 `dotnet ChessGameD.Web.dll --seed-admin`(同样只从配置 / 环境变量读,不走命令行明文参数)。
+- 部署完记得把 `appsettings.Local.json` 收好:它里面有明文口令。
 
 ### 在 VS Code 里调试
 
@@ -87,6 +107,17 @@ dotnet run --project src\ChessGameD.Web
   - **文本报告**:纯文本,便于贴进聊天或笔记。
 - 导出走的是 `GET /api/games/{id}/report?format=html|text`;棋局还没分析也能导出(会标注「尚未分析」)。
 
+### 账号与数据隔离
+
+- **注册**:账号名(2–32 位,字母 / 数字 / 下划线)+ 可选邮箱 + 密码;开放注册,同一 IP 每小时最多注册 5 个(可配)。
+- **登录**:用账号名登录(邮箱不参与登录);Cookie 有效期 7 天、滑动过期,登出立即失效。
+- **密码**:只存哈希(`Microsoft.AspNetCore.Identity` 的 PBKDF2 实现),库里没有明文;最少 6 位,且不能包含账号名。
+- **权限**:管理员能看设置页、用户管理,并能看到所有用户的棋局;普通用户只看到自己的棋局。跨用户访问一律按「不存在」处理(404),不泄露 id 是否存在。
+- **匿名访客**:不登录也能上传、分析、导出,但只能看到**本次浏览器会话**上传的棋局;换个浏览器 / 清掉 Cookie 就看不到了,这些数据会在 24 小时后被定时任务清掉。
+- **登录认领**:匿名会话登录后,本次会话上传的棋局会自动转到该账号名下。
+- **停用即时生效**:管理员停用某个账号后,对方已登录的会话在下一次请求时就会被踢出。
+- **忘记密码**:没有邮件找回(邮箱本来就不是必填),由管理员在「用户管理」页重置并线下告知;重置时会生成一个一次性临时密码。
+
 ## 数据放在哪
 
 全部在项目目录内,不写用户目录、不写注册表:
@@ -124,6 +155,18 @@ src/ChessGameD.Web/App_Data/
 ```
 
 设置页的值优先于配置文件。
+
+### 账号相关的配置
+
+| 配置项 | 默认值 | 说明 |
+| --- | --- | --- |
+| `Chess:Admin:Username` | 空 | 种子管理员登录名;留空则不创建 |
+| `Chess:Admin:Password` | 空 | 种子管理员初始口令(首次登录强制改密) |
+| `Chess:AnonymousRetentionHours` | 24 | 匿名棋局保留多少小时后被定时任务清掉 |
+| `Chess:RegistrationRateLimitPerHour` | 5 | 同一 IP 每小时最多注册几个账号 |
+
+前两项建议写在 `appsettings.Local.json` 或环境变量里(`Chess__Admin__Username` / `Chess__Admin__Password`),
+不要提交到版本库。
 
 ### 一键安装怎么认平台
 
@@ -168,10 +211,13 @@ dotnet publish src/ChessGameD.Web -c Release -r linux-x64 --self-contained false
 - **引擎不用提前准备**:第一次进「设置」页点「下载并安装 / 更新」,程序会自己下 Linux 版
   (`stockfish-linux-x86-64-universal.tar.gz`)并解压到 `App_Data/engines`。
 - **数据库跟着走**:`App_Data/chessgame.db` 在发布目录里,升级版本时把它一起拷过去,棋局和设置不会丢。
+  升级如果改了表结构,程序会**先备份旧库**到 `App_Data/backup/chessgame-<时间戳>.db` 再重建,日志里会打出备份路径。
 - **写权限**:发布目录要可写(引擎解压、SQLite 写入都需要),建议给运行用户单独开一个目录并 `chown`。
 - **后台常驻**:用 systemd 托管时记得加上 `WorkingDirectory=/opt/chessgame`,否则相对路径的 `App_Data` 会落到别处;
   默认只监听 `http://localhost:5000`,想让局域网访问就设 `ASPNETCORE_URLS=http://0.0.0.0:5055`。
-- **反向代理**:放在 Nginx 后面时,`AllowedHosts` 保持 `*` 即可;程序本身不带鉴权,只建议监听内网或 localhost。
+- **反向代理**:放在 Nginx 后面时,`AllowedHosts` 保持 `*` 即可。
+- **管理员口令**:`Chess__Admin__Username` / `Chess__Admin__Password` 用环境变量注入最省事,
+  不要写进发布目录里的配置文件。
 - **架构要对上**:`linux-x64` 与 `linux-arm64` 的发布产物不能混用;一键安装会按运行时的架构选引擎包,
   ARM64 机器上跑 x64 程序(靠模拟)时下载到的仍然是 x64 引擎包。
 
@@ -180,13 +226,15 @@ dotnet publish src/ChessGameD.Web -c Release -r linux-x64 --self-contained false
 ```
 ChessGameD.sln
 ├── src/ChessGameD.Web/            # Web 应用
-│   ├── Controllers/                # 页面控制器(Home / Games / Settings)
-│   │   └── Api/                    # JSON API(导入、分析、引擎安装、报告导出)
+│   ├── Controllers/                # 页面控制器(Home / Games / Settings / Account)
+│   │   ├── Admin/                  # 管理员页面(用户管理)
+│   │   └── Api/                    # JSON API(导入、分析、引擎安装、报告导出、账号)
 │   ├── Data/                       # 实体、DbContext、键值配置
 │   ├── Services/
 │   │   ├── Pgn/                    # PGN 清洗与导入
-│   │   ├── Engine/                 # UCI 客户端、引擎管理、一键安装
+│   │   ├── Engine/                 # UCI 客户端、引擎管理、先进先出队列、一键安装
 │   │   ├── Analysis/               # 走子分类、整局分析作业、UCI→SAN 转换
+│   │   ├── Auth/                   # 注册登录、密码哈希、归属过滤、匿名会话与清理
 │   │   └── Reports/                # 复盘报告生成(HTML / 纯文本)
 │   ├── Models/                     # 视图模型
 │   ├── Views/                      # Razor 页面
@@ -195,7 +243,7 @@ ChessGameD.sln
 │       └── lib/                    # vendored 的 chess.js / cm-chessboard
 ├── samples/example.pgn             # 示例 PGN(三局经典名局)
 └── tests/
-    ├── ChessGameD.Tests/           # xUnit 测试(108 个)
+    ├── ChessGameD.Tests/           # xUnit 测试(164 个)
     └── ChessGameD.FakeEngine/      # 假的 UCI 引擎,给测试用
 ```
 
@@ -205,7 +253,12 @@ ChessGameD.sln
 - **导入全程串行**:`PgnParser` 内部有静态可变状态,并发解析会串味,所以用静态锁排队。
 - **分值统一存"相对白方"**,分类用的损失量按走子方符号还原。
 - **UCI→SAN 在服务端做**(`Services/Analysis/SanConverter.cs`):引擎给的是 `e2e4`,人看的是 `e4`,导出报告与"逐步推荐着法"都要用后者。
-- **数据库用 `EnsureCreated()`**,没有引入 EF Migrations 工具链;启动时发现表结构不匹配会自动重建。
+- **数据库用 `EnsureCreated()`**,没有引入 EF Migrations 工具链;启动时发现表结构不匹配会自动重建(重建前先把旧库备份到 `App_Data/backup/`)。
+- **归属过滤不用 EF 全局查询过滤器**:整局分析是 singleton,后台作业会把请求的 `HttpContext` 一起带走,
+  用全局过滤器会踩到已回收的 `HttpContext`;所以改成**显式谓词**(`Services/Auth/GameOwnership.cs`),
+  所有按 id 取棋局的入口都必须先过 `Owned()`,越权一律 404。
+- **引擎只有一份,分析请求排队**:整局分析与即时分析共用一条先进先出的队列
+  (`Services/Engine/FifoGate.cs`),排队时能看到自己是第几位,不用报「引擎忙」。
 - **引擎包按运行平台选**:`Services/Engine/EnginePlatform.cs` 把「系统 + 架构 → 官方资产名 / 压缩格式」固化成一张表;
   一键安装时按它挑 Release 资产,解压按文件头判断 zip 还是 tar.gz,解压完给引擎补执行权限。
 
@@ -215,7 +268,7 @@ ChessGameD.sln
 dotnet test ChessGameD.sln
 ```
 
-108 个用例,覆盖 PGN 清洗、导入、走子分类(含漏着判定)、UCI→SAN 转换、报告生成、UCI 协议解析、一键安装(含 HTTP 打桩、平台匹配、zip / tar.gz 解压)、以及走完整 HTTP 链路的集成测试。
+164 个用例,覆盖 PGN 清洗、导入、走子分类(含漏着判定)、UCI→SAN 转换、报告生成、UCI 协议解析、一键安装(含 HTTP 打桩、平台匹配、zip / tar.gz 解压)、账号体系(注册 / 登录 / 改密 / 停用即时生效)、用户之间的数据隔离、匿名会话与定时清理、引擎队列,以及走完整 HTTP 链路的集成测试。
 测试用的假引擎是真实的独立控制台程序(`tests/ChessGameD.FakeEngine`),不用 `.cmd` 批处理——cmd.exe 从管道读 stdin 时会吞掉缓冲中的后续行,会让协议测试变成偶发失败。
 
 ## 许可与第三方组件
@@ -237,8 +290,29 @@ Stockfish 是 GPL 软件:以独立进程方式调用、通过标准输入输出�
 
 ## 已知限制
 
-- 只支持 Windows 的 Stockfish 官方发行包;macOS / Linux 需要自己准备引擎可执行文件并在设置页指定路径。
+### 安全
+
+- **站点目前只跑 HTTP,登录口令是明文过网的**。认证 Cookie 也没加 `Secure` 标记(加了浏览器在 HTTP 下会直接不存这个 Cookie,登录会静默失败)。
+  如果要放到公网,必须先上 HTTPS:配置证书、把 `CookieAuthenticationOptions.Cookie.SecurePolicy` 改成 `CookieSecurePolicy.Always`、再打开 HSTS。
+- **管理员种子口令由部署者注入**(`appsettings.Local.json` 或环境变量),仓库里不存明文;
+  种子账号首次登录会强制改密,但在改密之前它就是配置文件里的那个口令,部署完请尽快登录改掉。
+- 匿名会话 Cookie 是会话级的(关掉浏览器就没了),不是加密令牌;它只用来区分「本次会话」,不是身份凭证。
+- 写操作全部要过防伪 token(CSRF),前端统一在 `CG.fetchJson` 里带;表单用 `@Html.AntiForgeryToken()`。
+
+### 数据
+
+- **匿名数据保留 24 小时**:匿名访客上传的棋局、它的走子与分析结果会在每天凌晨 02:00 被定时任务删掉
+  (保留期可用 `Chess:AnonymousRetentionHours` 调整)。匿名会话本身只存在于浏览器会话里,清掉 Cookie 就再也回不来了。
+- **没有邮件找回密码**:邮箱是可选字段,不参与登录;密码忘了只能由管理员在「用户管理」页重置,并线下告知。
+- **注册开放但有频率限制**:同一 IP 每小时 5 个(可配);限流计数在进程内,多实例部署要换成共享存储。
+- 账号之间靠**显式归属过滤**隔离,新增按 id 取棋局的接口时必须走 `Owned()`(见「关键设计」),漏一处就会越权。
+- 数据库用 `EnsureCreated()`,改了表结构会**重建数据库**(重建前会自动备份旧库);这是开发工具的做法,别拿它当正式的生产库。
+
+### 功能
+
+- 一键安装已支持 Windows / Linux / macOS 官方发行包;官方没有的架构(例如 macOS ARM64)仍需自行指定引擎路径。
 - 整局分析是**单次搜索**口径。严格的"双方各搜一次再比对"的双搜索口径留作后续版本。
 - 「漏着」的判定阈值是写死的(走子前优势 ≥ +1.5、走完优势 ≤ +0.3),没做成可配置项。
 - 主变(PV)可以点击演示;「候选」里的其他变着暂时只是文字,还不能点击演示。
+- 引擎只有一个,所有分析请求排一条队;整局分析跑起来时,即时分析要等它轮到(最多等 2 分钟,超时会提示队列情况)。
 - 不支持在线对战、人机对弈、双人对弈。

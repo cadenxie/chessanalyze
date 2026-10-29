@@ -21,7 +21,15 @@
                 已安装的引擎与当前运行平台不一致,请到设置页重新下载对应平台的引擎。
             </div>
             <div style="margin-top: 14px;">
-                <a class="btn" href="/Settings/Index">前往设置页安装 / 调整引擎</a>
+                @if (Model.IsAdmin)
+                {
+                    <a class="btn" href="/Settings/Index">前往设置页安装 / 调整引擎</a>
+                }
+                else
+                {
+                    @* 引擎是全局的,只有管理员能装;普通用户看到引导文案就行 *@
+                    <span class="small muted">引擎由管理员统一安装与管理,还没装好时请联系管理员。</span>
+                }
             </div>
         </div>
 

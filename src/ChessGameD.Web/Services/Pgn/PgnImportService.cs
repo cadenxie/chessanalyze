@@ -1,6 +1,7 @@
 using ChessDotNetCore;
 using ChessDotNetCore.PgnParsing;
 using ChessGameD.Web.Data;
+using ChessGameD.Web.Services.Auth;
 using Microsoft.EntityFrameworkCore;
 using System.Text.RegularExpressions;
 
@@ -34,7 +35,12 @@ public sealed class PgnImportService
         _logger = logger;
     }
 
-    public async Task<ImportResult> ImportAsync(string rawText, string fileName, CancellationToken ct = default)
+    /// <param name="owner">棋局归属(登录用户 / 匿名会话),决定这局棋谁能看到。</param>
+    public async Task<ImportResult> ImportAsync(
+        string rawText,
+        string fileName,
+        GameOwner owner,
+        CancellationToken ct = default)
     {
         var result = new ImportResult();
 
@@ -58,7 +64,7 @@ public sealed class PgnImportService
             for (int i = 0; i < gameTexts.Count; i++)
             {
                 ct.ThrowIfCancellationRequested();
-                await ImportSingleGameAsync(gameTexts[i], i + 1, result, ct);
+                await ImportSingleGameAsync(gameTexts[i], i + 1, result, owner, ct);
             }
         }
         finally
@@ -70,7 +76,7 @@ public sealed class PgnImportService
         return result;
     }
 
-    private async Task ImportSingleGameAsync(string gameText, int gameIndex, ImportResult result, CancellationToken ct)
+    private async Task ImportSingleGameAsync(string gameText, int gameIndex, ImportResult result, GameOwner owner, CancellationToken ct)
     {
         PgnGame? pgnGame = null;
         string? errTxt = null;
@@ -116,7 +122,7 @@ public sealed class PgnImportService
 
         try
         {
-            await PersistGameAsync(pgnGame, result, ct);
+            await PersistGameAsync(pgnGame, result, owner, ct);
         }
         catch (Exception ex)
         {
@@ -126,7 +132,7 @@ public sealed class PgnImportService
         }
     }
 
-    private async Task PersistGameAsync(PgnGame pgnGame, ImportResult result, CancellationToken ct)
+    private async Task PersistGameAsync(PgnGame pgnGame, ImportResult result, GameOwner owner, CancellationToken ct)
     {
         var attrs = pgnGame.Attrs ?? new Dictionary<string, string>();
         var initialFen = GetAttr(attrs, "FEN");
@@ -179,6 +185,8 @@ public sealed class PgnImportService
             PlyCount = pgnGame.PgnMoves!.Count,
             ImportedAt = DateTime.UtcNow,
             ImportBatchId = result.BatchId,
+            OwnerUserId = owner.UserId,
+            OwnerAnonKey = owner.AnonKey,
         };
 
         if (string.IsNullOrWhiteSpace(game.Result))

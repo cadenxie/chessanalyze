@@ -25,6 +25,9 @@ public sealed class HomeViewModel
     public EngineStatus Engine { get; set; } = new();
     public IReadOnlyList<GameListItem> RecentGames { get; set; } = Array.Empty<GameListItem>();
     public int TotalGames { get; set; }
+
+    /// <summary>当前用户是不是管理员(决定能不能进设置页)。</summary>
+    public bool IsAdmin { get; set; }
 }
 
 public sealed class GameListViewModel

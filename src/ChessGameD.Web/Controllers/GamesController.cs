@@ -1,5 +1,6 @@
 using ChessGameD.Web.Data;
 using ChessGameD.Web.Models;
+using ChessGameD.Web.Services.Auth;
 using ChessGameD.Web.Services.Engine;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -10,16 +11,20 @@ public class GamesController : Controller
 {
     private readonly AppDbContext _db;
     private readonly EngineManager _engine;
+    private readonly CurrentUser _current;
 
-    public GamesController(AppDbContext db, EngineManager engine)
+    public GamesController(AppDbContext db, EngineManager engine, CurrentUser current)
     {
         _db = db;
         _engine = engine;
+        _current = current;
     }
 
     public async Task<IActionResult> Index(string? q, CancellationToken ct)
     {
-        var query = _db.Games.AsNoTracking().AsQueryable();
+        // 只列出当前身份看得见的棋局
+        var owned = _db.Games.Owned(_current).AsNoTracking();
+        var query = owned.AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(q))
         {
@@ -32,7 +37,12 @@ public class GamesController : Controller
                 || (g.Eco != null && g.Eco.Contains(keyword)));
         }
 
-        var analyzed = await _db.Analyses.AsNoTracking().Select(a => a.GameId).Distinct().ToListAsync(ct);
+        var analyzed = await _db.Analyses
+            .AsNoTracking()
+            .Where(a => owned.Select(g => g.Id).Contains(a.GameId))
+            .Select(a => a.GameId)
+            .Distinct()
+            .ToListAsync(ct);
         var total = await query.CountAsync(ct);
         var games = await query.OrderByDescending(g => g.ImportedAt).Take(500).ToListAsync(ct);
 
@@ -64,6 +74,7 @@ public class GamesController : Controller
     public async Task<IActionResult> Review(int id, CancellationToken ct)
     {
         var game = await _db.Games
+            .Owned(_current)
             .AsNoTracking()
             .Include(g => g.Moves)
             .FirstOrDefaultAsync(g => g.Id == id, ct);

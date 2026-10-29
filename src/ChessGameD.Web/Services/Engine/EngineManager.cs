@@ -41,6 +41,16 @@ public sealed class EngineBusyException : Exception
     public EngineBusyException(string message) : base(message) { }
 }
 
+/// <summary>分析队列的状态。</summary>
+public sealed class EngineQueueStatus
+{
+    /// <summary>正在排队的任务数。</summary>
+    public int Waiting { get; set; }
+
+    /// <summary>本次任务的位次(1 起)。</summary>
+    public int Position { get; set; }
+}
+
 /// <summary>一条 MultiPV 候选。</summary>
 public sealed record MultiPvLine(int MultiPv, int? ScoreCp, int? ScoreMate, IReadOnlyList<string> Pv);
 
@@ -60,8 +70,8 @@ public sealed record EngineAnalysis(
 /// 引擎进程的唯一所有者(进程内只有这一个 Stockfish)。
 ///
 /// 并发语义:
-/// - 全局搜索锁保证同一时刻只有一次搜索;
-/// - 整局分析(批量)持锁直到结束,期间的即时分析请求排队,超过 60 秒返回"引擎忙";
+/// - 所有分析请求(即时分析、整局分析)共用一条先进先出的队列,同一时刻只有一次搜索;
+/// - 整局分析排在队列里等待,等待期间能看到自己是第几位,不会报「引擎忙」;
 /// - 引擎崩溃后自动重启,并对当前这次搜索重试一次。
 /// </summary>
 public sealed class EngineManager : IHostedService, IAsyncDisposable
@@ -69,8 +79,11 @@ public sealed class EngineManager : IHostedService, IAsyncDisposable
     private readonly SettingsStore _settings;
     private readonly ILogger<EngineManager> _logger;
     private readonly EnginePlatform _platform;
-    private readonly SemaphoreSlim _searchLock = new(1, 1);
+    private readonly FifoGate _gate = new();
     private readonly SemaphoreSlim _lifecycleLock = new(1, 1);
+
+    /// <summary>即时分析最多排队多久(超过就告诉调用方队列情况)。</summary>
+    private static readonly TimeSpan InstantAnalysisQueueWait = TimeSpan.FromSeconds(120);
 
     private UciEngineClient? _client;
     private EngineState _state = EngineState.NotInstalled;
@@ -85,6 +98,12 @@ public sealed class EngineManager : IHostedService, IAsyncDisposable
 
     /// <summary>当前运行平台。</summary>
     public EnginePlatform Platform => _platform;
+
+    /// <summary>分析队列(先进先出)。</summary>
+    public FifoGate Queue => _gate;
+
+    /// <summary>当前队列里排着几个任务。</summary>
+    public EngineQueueStatus GetQueueStatus() => new() { Waiting = _gate.WaitingCount };
 
     public async Task<EngineStatus> GetStatusAsync(CancellationToken ct = default)
     {
@@ -166,13 +185,19 @@ public sealed class EngineManager : IHostedService, IAsyncDisposable
         int multiPv,
         CancellationToken ct = default)
     {
-        if (!await _searchLock.WaitAsync(TimeSpan.FromSeconds(60), ct))
-        {
-            throw new EngineBusyException("整局分析正在占用引擎,请稍后再试,或先停止整局分析。");
-        }
+        // 即时分析也要排队(跟整局分析共用一条队列),前面有任务就等着
+        var ticket = _gate.Enqueue();
+        var granted = false;
+
+        // 等太久就放弃:告诉调用方前面排了多少个,而不是干等着
+        using var waitCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        waitCts.CancelAfter(InstantAnalysisQueueWait);
 
         try
         {
+            await _gate.WaitAsync(ticket, waitCts.Token);
+            granted = true;
+
             var options = new UciSearchOptions
             {
                 Depth = depth,
@@ -184,18 +209,36 @@ public sealed class EngineManager : IHostedService, IAsyncDisposable
             var result = await RunSearchWithRetryAsync(fen, moves, options, ct);
             return ToAnalysis(result, fen);
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (OperationCanceledException) when (!granted)
+        {
+            // 排队时被取消:把自己从队列里摘掉就行,不用释放闸门
+            throw new EngineBusyException(
+                $"引擎正在处理前面的任务(队列里还有 {ticket.Ahead} 个),请稍后再试。");
+        }
         finally
         {
-            _searchLock.Release();
+            if (granted)
+            {
+                _gate.Release();
+            }
         }
     }
 
-    /// <summary>批量分析(整局)。持锁直到全部完成,期间可被取消令牌打断。</summary>
+    /// <summary>
+    /// 批量分析(整局)。排在全局队列里,等待期间通过 <paramref name="onEnqueued"/>
+    /// 把排队凭条交出去,调用方可以显示出「排队中(第 N 位)」。
+    /// </summary>
     public async Task AnalyzeBatchAsync(
         IReadOnlyList<(int Ply, string Fen)> positions,
         UciSearchOptions options,
         Func<(int Ply, EngineAnalysis Analysis), Task>? onResult,
         IProgress<int>? progress,
+        Action<FifoGate.Ticket>? onEnqueued = null,
+        Action? onStarted = null,
         CancellationToken ct = default)
     {
         if (positions.Count == 0)
@@ -203,9 +246,16 @@ public sealed class EngineManager : IHostedService, IAsyncDisposable
             return;
         }
 
-        await _searchLock.WaitAsync(ct);
+        var ticket = _gate.Enqueue();
+        var granted = false;
+
         try
         {
+            onEnqueued?.Invoke(ticket);
+            await _gate.WaitAsync(ticket, ct);
+            granted = true;
+            onStarted?.Invoke();
+
             var done = 0;
             foreach (var (ply, fen) in positions)
             {
@@ -223,7 +273,10 @@ public sealed class EngineManager : IHostedService, IAsyncDisposable
         }
         finally
         {
-            _searchLock.Release();
+            if (granted)
+            {
+                _gate.Release();
+            }
         }
     }
 

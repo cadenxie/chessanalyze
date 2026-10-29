@@ -1,6 +1,7 @@
 using ChessGameD.Web.Data;
 using ChessGameD.Web.Models;
 using ChessGameD.Web.Services.Engine;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 
@@ -17,6 +18,8 @@ public sealed class SettingsForm
     public string? ProxyUrl { get; set; }
 }
 
+/// <summary>全局设置页(引擎安装与参数):只对管理员开放。</summary>
+[Authorize(Policy = "AdminOnly")]
 public class SettingsController : Controller
 {
     private readonly SettingsStore _settings;
@@ -67,6 +70,7 @@ public class SettingsController : Controller
     }
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Save([FromBody] SettingsForm form, CancellationToken ct)
     {
         var path = form.EnginePath?.Trim();

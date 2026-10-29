@@ -1,0 +1,35 @@
+@model ChessGameD.Web.Models.LoginViewModel
+@{
+    ViewData["Title"] = "登录";
+}
+
+<div class="row wrap">
+    <div class="col" style="max-width: 420px;">
+        <div class="panel">
+            <h2>登录</h2>
+
+            @if (!string.IsNullOrEmpty(Model.Error))
+            {
+                <p class="small" style="color:#e88;">@Model.Error</p>
+            }
+
+            <form method="post" action="/Account/Login">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="ReturnUrl" value="@Model.ReturnUrl" />
+                <label class="field">
+                    <span>账号名</span>
+                    <input type="text" name="UserName" value="@Model.UserName" autocomplete="username" autofocus />
+                </label>
+                <label class="field">
+                    <span>密码</span>
+                    <input type="password" name="Password" autocomplete="current-password" />
+                </label>
+                <button class="primary" type="submit">登录</button>
+            </form>
+
+            <p class="small muted" style="margin-top:14px;">
+                还没有账号?<a href="/Account/Register">注册一个</a>
+            </p>
+        </div>
+    </div>
+</div>

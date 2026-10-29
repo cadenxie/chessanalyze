@@ -18,6 +18,12 @@ public sealed class AnalysisJobStatus
     public string? Error { get; set; }
     public DateTimeOffset? StartedAt { get; set; }
     public DateTimeOffset? FinishedAt { get; set; }
+
+    /// <summary>排队位次(1 起);不在排队时是 0。</summary>
+    public int QueuePosition { get; set; }
+
+    /// <summary>队列里一共有几个任务。</summary>
+    public int QueueWaiting { get; set; }
 }
 
 public sealed record AnalysisPoint(int Ply, int? ScoreCp, int? ScoreMate, int Depth);
@@ -64,7 +70,22 @@ public sealed class GameAnalyzer
     }
 
     public AnalysisJobStatus GetStatus(int gameId)
-        => _jobs.TryGetValue(gameId, out var job) ? job.Status : new AnalysisJobStatus();
+    {
+        if (!_jobs.TryGetValue(gameId, out var job))
+        {
+            return new AnalysisJobStatus();
+        }
+
+        // 排队中的话,把实时位次刷进状态里(前面的人跑完就会往前挪)
+        var ticket = job.Ticket;
+        if (ticket is not null && job.Status.State == "queued")
+        {
+            job.Status.QueuePosition = ticket.Position;
+            job.Status.QueueWaiting = ticket.Waiting;
+        }
+
+        return job.Status;
+    }
 
     public Task<AnalysisJobStatus> StartAsync(int gameId, bool force, CancellationToken ct = default)
     {
@@ -81,7 +102,7 @@ public sealed class GameAnalyzer
         var job = new Job();
         _jobs[gameId] = job;
 
-        job.Status = new AnalysisJobStatus { State = "running", StartedAt = DateTimeOffset.Now };
+        job.Status = new AnalysisJobStatus { State = "queued", StartedAt = DateTimeOffset.Now };
 
         _ = Task.Run(async () =>
         {
@@ -204,6 +225,19 @@ public sealed class GameAnalyzer
                     : (int)(100.0 * job.Status.Done / job.Status.Total);
             },
             null,
+            ticket =>
+            {
+                // 拿到排队凭条:等待期间界面可以显示「排队中(第 N 位)」
+                job.Ticket = ticket;
+                job.Status.QueuePosition = ticket.Position;
+                job.Status.QueueWaiting = ticket.Waiting;
+            },
+            () =>
+            {
+                // 排到了,开始真正跑
+                job.Status.State = "running";
+                job.Status.QueuePosition = 0;
+            },
             ct);
     }
 
@@ -395,5 +429,8 @@ public sealed class GameAnalyzer
     {
         public CancellationTokenSource Cts { get; } = new();
         public AnalysisJobStatus Status { get; set; } = new();
+
+        /// <summary>在引擎队列里的排队凭条(还没排到时有效)。</summary>
+        public FifoGate.Ticket? Ticket { get; set; }
     }
 }

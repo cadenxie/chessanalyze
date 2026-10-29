@@ -1,0 +1,44 @@
+@model ChessGameD.Web.Models.RegisterViewModel
+@{
+    ViewData["Title"] = "注册";
+}
+
+<div class="row wrap">
+    <div class="col" style="max-width: 420px;">
+        <div class="panel">
+            <h2>注册账号</h2>
+            <p class="small muted">新注册的账号是普通账号,只能看到自己导入的棋局。</p>
+
+            @if (!string.IsNullOrEmpty(Model.Error))
+            {
+                <p class="small" style="color:#e88;">@Model.Error</p>
+            }
+
+            <form method="post" action="/Account/Register">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="ReturnUrl" value="@Model.ReturnUrl" />
+                <label class="field">
+                    <span>账号名(2–32 位,字母 / 数字 / 下划线)</span>
+                    <input type="text" name="UserName" value="@Model.UserName" autocomplete="username" autofocus />
+                </label>
+                <label class="field">
+                    <span>邮箱(可选,填了就不能被别人占用)</span>
+                    <input type="email" name="Email" value="@Model.Email" autocomplete="email" />
+                </label>
+                <label class="field">
+                    <span>密码(至少 6 位)</span>
+                    <input type="password" name="Password" autocomplete="new-password" />
+                </label>
+                <label class="field">
+                    <span>确认密码</span>
+                    <input type="password" name="ConfirmPassword" autocomplete="new-password" />
+                </label>
+                <button class="primary" type="submit">注册</button>
+            </form>
+
+            <p class="small muted" style="margin-top:14px;">
+                已经有账号了?<a href="/Account/Login">去登录</a>
+            </p>
+        </div>
+    </div>
+</div>

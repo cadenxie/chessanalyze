@@ -100,7 +100,7 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 button.primary:hover:not(:disabled) { background: var(--accent-2); }
 button.danger { border-color: #6d3330; color: #e88; }
 
-input[type=text], input[type=number], input[type=search], textarea, select {
+input[type=text], input[type=number], input[type=search], input[type=password], input[type=email], textarea, select {
   background: #14171d;
   color: var(--text);
   border: 1px solid var(--border);

@@ -44,6 +44,7 @@ public class EngineApiController : ControllerBase
 
     /// <summary>一键安装/更新 Stockfish(后台执行,立即返回作业号)。</summary>
     [HttpPost("install")]
+    [ValidateAntiForgeryToken]
     public IActionResult Install()
     {
         var jobId = _installer.StartInstall();
@@ -70,6 +71,7 @@ public class EngineApiController : ControllerBase
 
     /// <summary>即时分析:对单个局面求评估。</summary>
     [HttpPost("analyze")]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Analyze([FromBody] InstantAnalyzeRequest request, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.Fen))
@@ -122,6 +124,7 @@ public class EngineApiController : ControllerBase
 
     /// <summary>测试引擎连接。</summary>
     [HttpPost("test")]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Test(CancellationToken ct)
     {
         try

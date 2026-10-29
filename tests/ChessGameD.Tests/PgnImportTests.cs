@@ -1,3 +1,4 @@
+using ChessGameD.Web.Services.Auth;
 using ChessGameD.Web.Services.Pgn;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -7,6 +8,9 @@ namespace ChessGameD.Tests;
 
 public class PgnImportTests
 {
+    /// <summary>测试里统一的归属(用户 1)。</summary>
+    private static readonly GameOwner TestOwner = new(TestDatabase.TestUserId, null);
+
     private static PgnImportService CreateService(TestDatabase db)
         => new(db.Factory, NullLogger<PgnImportService>.Instance);
 
@@ -16,7 +20,7 @@ public class PgnImportTests
         await using var db = new TestDatabase();
         var service = CreateService(db);
 
-        var result = await service.ImportAsync(TestPgn.SimpleGame, "simple.pgn");
+        var result = await service.ImportAsync(TestPgn.SimpleGame, "simple.pgn", TestOwner);
 
         Assert.Equal(1, result.TotalGames);
         Assert.Equal(1, result.ImportedGames);
@@ -49,7 +53,7 @@ public class PgnImportTests
         await using var db = new TestDatabase();
         var service = CreateService(db);
 
-        var result = await service.ImportAsync(TestPgn.ThreeGames, "three.pgn");
+        var result = await service.ImportAsync(TestPgn.ThreeGames, "three.pgn", TestOwner);
 
         Assert.Equal(3, result.TotalGames);
         Assert.Equal(3, result.ImportedGames);
@@ -62,7 +66,7 @@ public class PgnImportTests
         await using var db = new TestDatabase();
         var service = CreateService(db);
 
-        var result = await service.ImportAsync(TestPgn.WithVariation, "rav.pgn");
+        var result = await service.ImportAsync(TestPgn.WithVariation, "rav.pgn", TestOwner);
 
         Assert.Equal(1, result.ImportedGames);
 
@@ -90,7 +94,7 @@ public class PgnImportTests
         var service = CreateService(db);
 
         var combined = TestPgn.SimpleGame + "\n" + TestPgn.WithIllegalMove;
-        var result = await service.ImportAsync(combined, "mixed.pgn");
+        var result = await service.ImportAsync(combined, "mixed.pgn", TestOwner);
 
         Assert.Equal(2, result.TotalGames);
         Assert.Equal(1, result.ImportedGames);
@@ -104,7 +108,7 @@ public class PgnImportTests
         await using var db = new TestDatabase();
         var service = CreateService(db);
 
-        var result = await service.ImportAsync(TestPgn.FromPosition, "fen.pgn");
+        var result = await service.ImportAsync(TestPgn.FromPosition, "fen.pgn", TestOwner);
 
         Assert.Equal(1, result.ImportedGames);
 
@@ -123,7 +127,7 @@ public class PgnImportTests
         await using var db = new TestDatabase();
         var service = CreateService(db);
 
-        var result = await service.ImportAsync("这不是 PGN", "junk.pgn");
+        var result = await service.ImportAsync("这不是 PGN", "junk.pgn", TestOwner);
 
         Assert.Equal(0, result.ImportedGames);
         Assert.Equal(1, result.SkippedGames);
@@ -137,7 +141,7 @@ public class PgnImportTests
         await using var db = new TestDatabase();
         var service = CreateService(db);
 
-        var result = await service.ImportAsync(TestPgn.ThreeGames, "three.pgn");
+        var result = await service.ImportAsync(TestPgn.ThreeGames, "three.pgn", TestOwner);
 
         var batch = await db.Context.ImportBatches.SingleAsync();
         Assert.Equal("three.pgn", batch.FileName);
@@ -152,7 +156,7 @@ public class PgnImportTests
         await using var db = new TestDatabase();
         var service = CreateService(db);
 
-        await service.ImportAsync(TestPgn.SimpleGame, "simple.pgn");
+        await service.ImportAsync(TestPgn.SimpleGame, "simple.pgn", TestOwner);
         var game = await db.Context.Games.SingleAsync();
 
         Assert.Contains("[White \"Alice\"]", game.PgnText);
@@ -175,7 +179,7 @@ public class PgnImportTests
         1. e4, e5 2. Nf3, Nc6 1-0
         """;
 
-        var result = await service.ImportAsync(pgn, "comma.pgn");
+        var result = await service.ImportAsync(pgn, "comma.pgn", TestOwner);
 
         Assert.Equal(1, result.ImportedGames);
         Assert.Empty(result.Errors);
@@ -193,7 +197,7 @@ public class PgnImportTests
 
         // 第 2 局里有一个非法着法(Qxh8 白后 h8 无人守护)
         var combined = TestPgn.SimpleGame + "\n" + TestPgn.WithIllegalMove;
-        var result = await service.ImportAsync(combined, "mixed.pgn");
+        var result = await service.ImportAsync(combined, "mixed.pgn", TestOwner);
 
         Assert.Equal(1, result.SkippedGames);
         var error = Assert.Single(result.Errors);
@@ -208,7 +212,7 @@ public class PgnImportTests
         await using var db = new TestDatabase();
         var service = CreateService(db);
 
-        var result = await service.ImportAsync("这不是 PGN", "junk.pgn");
+        var result = await service.ImportAsync("这不是 PGN", "junk.pgn", TestOwner);
 
         Assert.Single(result.Errors);
         Assert.Contains("第 1 局", result.Errors[0]);

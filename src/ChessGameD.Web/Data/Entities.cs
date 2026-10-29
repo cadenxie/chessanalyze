@@ -40,6 +40,13 @@ public class Game
     public int ImportBatchId { get; set; }
     public ImportBatch? ImportBatch { get; set; }
 
+    /// <summary>归属的登录用户;与 <see cref="OwnerAnonKey"/> 二选一。</summary>
+    public int? OwnerUserId { get; set; }
+    public User? OwnerUser { get; set; }
+
+    /// <summary>归属的匿名会话(会话级 GUID);与 <see cref="OwnerUserId"/> 二选一。</summary>
+    [MaxLength(64)] public string? OwnerAnonKey { get; set; }
+
     public ICollection<GameMove> Moves { get; set; } = new List<GameMove>();
     public ICollection<Analysis> Analyses { get; set; } = new List<Analysis>();
 }

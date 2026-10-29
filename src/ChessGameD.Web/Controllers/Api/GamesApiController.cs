@@ -1,5 +1,6 @@
 using ChessGameD.Web.Data;
 using ChessGameD.Web.Services.Analysis;
+using ChessGameD.Web.Services.Auth;
 using ChessGameD.Web.Services.Engine;
 using ChessGameD.Web.Services.Pgn;
 using ChessGameD.Web.Services.Reports;
@@ -18,16 +19,23 @@ public class GamesApiController : ControllerBase
     private readonly PgnImportService _importer;
     private readonly GameAnalyzer _analyzer;
     private readonly AppDbContext _db;
+    private readonly CurrentUser _current;
 
-    public GamesApiController(PgnImportService importer, GameAnalyzer analyzer, AppDbContext db)
+    public GamesApiController(
+        PgnImportService importer,
+        GameAnalyzer analyzer,
+        AppDbContext db,
+        CurrentUser current)
     {
         _importer = importer;
         _analyzer = analyzer;
         _db = db;
+        _current = current;
     }
 
     /// <summary>导入 PGN(文件或文本)。</summary>
     [HttpPost("import")]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Import(IFormFile? file, [FromForm] string? text, CancellationToken ct)
     {
         string content;
@@ -66,7 +74,7 @@ public class GamesApiController : ControllerBase
             return BadRequest(new { error = "请上传 PGN 文件,或粘贴 PGN 内容。" });
         }
 
-        var result = await _importer.ImportAsync(content, fileName, ct);
+        var result = await _importer.ImportAsync(content, fileName, GameOwner.For(_current), ct);
 
         return Ok(new
         {
@@ -82,6 +90,7 @@ public class GamesApiController : ControllerBase
     public async Task<IActionResult> Moves(int id, CancellationToken ct)
     {
         var game = await _db.Games
+            .Owned(_current)
             .AsNoTracking()
             .Include(g => g.Moves)
             .FirstOrDefaultAsync(g => g.Id == id, ct);
@@ -107,9 +116,10 @@ public class GamesApiController : ControllerBase
 
     /// <summary>启动整局分析(后台执行)。</summary>
     [HttpPost("{id:int}/analyze")]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Analyze(int id, [FromQuery] bool force = false, CancellationToken ct = default)
     {
-        var exists = await _db.Games.AnyAsync(g => g.Id == id, ct);
+        var exists = await _db.Games.Owned(_current).AnyAsync(g => g.Id == id, ct);
         if (!exists)
         {
             return NotFound();
@@ -120,18 +130,37 @@ public class GamesApiController : ControllerBase
     }
 
     [HttpPost("{id:int}/analyze/stop")]
-    public IActionResult StopAnalyze(int id)
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> StopAnalyze(int id, CancellationToken ct)
     {
+        if (!await _db.Games.Owned(_current).AnyAsync(g => g.Id == id, ct))
+        {
+            return NotFound();
+        }
+
         _analyzer.Stop(id);
         return Ok(new { ok = true });
     }
 
     [HttpGet("{id:int}/analysis/status")]
-    public IActionResult AnalysisStatus(int id) => Ok(_analyzer.GetStatus(id));
+    public async Task<IActionResult> AnalysisStatus(int id, CancellationToken ct)
+    {
+        if (!await _db.Games.Owned(_current).AnyAsync(g => g.Id == id, ct))
+        {
+            return NotFound();
+        }
+
+        return Ok(_analyzer.GetStatus(id));
+    }
 
     [HttpGet("{id:int}/analysis")]
     public async Task<IActionResult> Analysis(int id, CancellationToken ct)
     {
+        if (!await _db.Games.Owned(_current).AnyAsync(g => g.Id == id, ct))
+        {
+            return NotFound(new { error = "该棋局还没有分析结果。" });
+        }
+
         var summary = await _analyzer.GetResultAsync(id, ct);
         if (summary is null)
         {
@@ -166,6 +195,7 @@ public class GamesApiController : ControllerBase
     public async Task<IActionResult> Report(int id, [FromQuery] string format = "html", CancellationToken ct = default)
     {
         var game = await _db.Games
+            .Owned(_current)
             .AsNoTracking()
             .Include(g => g.Moves)
             .FirstOrDefaultAsync(g => g.Id == id, ct);
@@ -192,9 +222,10 @@ public class GamesApiController : ControllerBase
     }
 
     [HttpDelete("{id:int}")]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Delete(int id, CancellationToken ct)
     {
-        var game = await _db.Games.FindAsync(new object?[] { id }, ct);
+        var game = await _db.Games.Owned(_current).FirstOrDefaultAsync(g => g.Id == id, ct);
         if (game is null)
         {
             return NotFound();

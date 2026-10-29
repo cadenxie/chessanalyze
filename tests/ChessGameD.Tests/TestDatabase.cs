@@ -15,6 +15,9 @@ public sealed class TestDatabase : IAsyncDisposable
     public IDbContextFactory<AppDbContext> Factory { get; }
     public SettingsStore Settings { get; }
 
+    /// <summary>测试用户的固定 id。</summary>
+    public const int TestUserId = 1;
+
     public TestDatabase()
     {
         _connection = new SqliteConnection("Data Source=:memory:");
@@ -28,6 +31,16 @@ public sealed class TestDatabase : IAsyncDisposable
         Context.Database.EnsureCreated();
         Factory = new TestFactory(options);
         Settings = new SettingsStore(Factory, new MemoryCache(new MemoryCacheOptions()), NullLogger<SettingsStore>.Instance);
+
+        // 建一个固定 id 的测试用户:棋局要挂在用户名下,外键得有对应的人
+        Context.Users.Add(new User
+        {
+            Id = TestUserId,
+            UserName = "tester",
+            PasswordHash = "not-a-real-hash",
+            CreatedAt = DateTime.UtcNow,
+        });
+        Context.SaveChanges();
     }
 
     public async ValueTask DisposeAsync()

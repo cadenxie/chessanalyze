@@ -1,35 +1,10 @@
 using System.Net;
-using System.Net.Http.Json;
-using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace ChessGameD.Tests;
-
-public sealed class AppFactory : WebApplicationFactory<Program>
-{
-    private readonly string _dir;
-
-    public AppFactory()
-    {
-        _dir = Path.Combine(Path.GetTempPath(), "chessgamed-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(_dir);
-    }
-
-    protected override void ConfigureWebHost(IWebHostBuilder builder)
-    {
-        builder.UseSetting("ConnectionStrings:DefaultConnection", $"Data Source={Path.Combine(_dir, "test.db")}");
-    }
-
-    protected override void Dispose(bool disposing)
-    {
-        base.Dispose(disposing);
-        try { Directory.Delete(_dir, recursive: true); } catch { }
-    }
-}
 
 public class IntegrationTests : IDisposable
 {
@@ -45,20 +20,12 @@ public class IntegrationTests : IDisposable
 
     public void Dispose() => _factory.Dispose();
 
-    private static MultipartFormDataContent BuildImportRequest(string pgn)
-    {
-        var content = new MultipartFormDataContent();
-        // 不传 fileName,这样才是普通表单字段而不是文件
-        content.Add(new StringContent(pgn, Encoding.UTF8), "text");
-        return content;
-    }
-
     [Fact]
     public async Task Import_ThenList_ThenReview_Works()
     {
-        var client = _factory.CreateClient();
+        using var session = WebSession.Create(_factory);
 
-        var import = await client.PostAsync("/api/games/import", BuildImportRequest(TestPgn.SimpleGame));
+        var import = await session.PostTextFieldAsync("/api/games/import", "text", TestPgn.SimpleGame);
         var importBodyText = await import.Content.ReadAsStringAsync();
         Assert.True(import.StatusCode == HttpStatusCode.OK, $"HTTP {(int)import.StatusCode}: {importBodyText}");
 
@@ -68,18 +35,21 @@ public class IntegrationTests : IDisposable
         Assert.True(importBody.Imported == 1, $"应导入 1 局,实际 {importBody.Imported}: {importBodyText}");
         Assert.Equal(0, importBody.Skipped);
 
-        var list = await client.GetFromJsonAsync<ListResponse>("/api/games/1/moves");
-        Assert.NotNull(list);
-        Assert.Equal("Alice", list!.White);
-        Assert.Equal(7, list.Moves.Count);
-        Assert.Equal("e4", list.Moves[1].San);
+        var list = await session.GetAsync("/api/games/1/moves");
+        var listBody = await list.Content.ReadAsStringAsync();
+        Assert.Equal(HttpStatusCode.OK, list.StatusCode);
+        var listData = JsonSerializer.Deserialize<ListResponse>(listBody, JsonOpts);
+        Assert.NotNull(listData);
+        Assert.Equal("Alice", listData!.White);
+        Assert.Equal(7, listData.Moves.Count);
+        Assert.Equal("e4", listData.Moves[1].San);
 
-        var home = await client.GetAsync("/Home/Index");
+        var home = await session.GetAsync("/Home/Index");
         Assert.Equal(HttpStatusCode.OK, home.StatusCode);
         var homeHtml = await home.Content.ReadAsStringAsync();
         Assert.Contains("导入 PGN", homeHtml);
 
-        var review = await client.GetAsync("/Games/Review/1");
+        var review = await session.GetAsync("/Games/Review/1");
         Assert.Equal(HttpStatusCode.OK, review.StatusCode);
         var reviewHtml = await review.Content.ReadAsStringAsync();
         Assert.Contains("Alice", reviewHtml);
@@ -92,11 +62,11 @@ public class IntegrationTests : IDisposable
     {
         // 复盘页把走法数据内嵌成 JSON 给前端用。前端读的是 move.fen / move.san,
         // 如果这里序列化成 PascalCase,棋盘会没有棋子、走法列表也会是空的。
-        var client = _factory.CreateClient();
-        var import = await client.PostAsync("/api/games/import", BuildImportRequest(TestPgn.SimpleGame));
+        using var session = WebSession.Create(_factory);
+        var import = await session.PostTextFieldAsync("/api/games/import", "text", TestPgn.SimpleGame);
         Assert.Equal(HttpStatusCode.OK, import.StatusCode);
 
-        var review = await client.GetAsync("/Games/Review/1");
+        var review = await session.GetAsync("/Games/Review/1");
         Assert.Equal(HttpStatusCode.OK, review.StatusCode);
         var html = await review.Content.ReadAsStringAsync();
 
@@ -116,32 +86,35 @@ public class IntegrationTests : IDisposable
     [Fact]
     public async Task Analysis_WithoutEngine_ReturnsNotFound()
     {
-        var client = _factory.CreateClient();
+        using var session = WebSession.Create(_factory);
 
-        var import = await client.PostAsync("/api/games/import", BuildImportRequest(TestPgn.ThreeGames));
+        var import = await session.PostTextFieldAsync("/api/games/import", "text", TestPgn.ThreeGames);
         Assert.Equal(HttpStatusCode.OK, import.StatusCode);
 
-        var response = await client.GetAsync("/api/games/1/analysis");
+        var response = await session.GetAsync("/api/games/1/analysis");
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     [Fact]
     public async Task EngineStatus_ReportsNotInstalled()
     {
-        var client = _factory.CreateClient();
+        using var session = WebSession.Create(_factory);
 
-        var status = await client.GetFromJsonAsync<EngineStatusResponse>("/api/engine/status");
-        Assert.NotNull(status);
-        Assert.Equal("NotInstalled", status!.State);
-        Assert.False(status.IsInstalled);
+        var status = await session.GetAsync("/api/engine/status");
+        Assert.Equal(HttpStatusCode.OK, status.StatusCode);
+        var body = await status.Content.ReadAsStringAsync();
+        var data = JsonSerializer.Deserialize<EngineStatusResponse>(body, JsonOpts);
+        Assert.NotNull(data);
+        Assert.Equal("NotInstalled", data!.State);
+        Assert.False(data.IsInstalled);
     }
 
     [Fact]
     public async Task InstantAnalyze_WithoutEngine_ReturnsConflict()
     {
-        var client = _factory.CreateClient();
+        using var session = WebSession.Create(_factory);
 
-        var response = await client.PostAsJsonAsync("/api/engine/analyze", new
+        var response = await session.PostJsonAsync("/api/engine/analyze", new
         {
             fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
         });
@@ -152,10 +125,10 @@ public class IntegrationTests : IDisposable
     [Fact]
     public async Task GamesIndex_RendersList()
     {
-        var client = _factory.CreateClient();
-        await client.PostAsync("/api/games/import", BuildImportRequest(TestPgn.ThreeGames));
+        using var session = WebSession.Create(_factory);
+        await session.PostTextFieldAsync("/api/games/import", "text", TestPgn.ThreeGames);
 
-        var page = await client.GetAsync("/Games/Index");
+        var page = await session.GetAsync("/Games/Index");
         Assert.Equal(HttpStatusCode.OK, page.StatusCode);
         var html = await page.Content.ReadAsStringAsync();
         Assert.Contains("A1", html);
@@ -169,10 +142,10 @@ public class IntegrationTests : IDisposable
     [Fact]
     public async Task Report_Html_ReturnsSelfContainedReport()
     {
-        var client = _factory.CreateClient();
-        await client.PostAsync("/api/games/import", BuildImportRequest(TestPgn.SimpleGame));
+        using var session = WebSession.Create(_factory);
+        await session.PostTextFieldAsync("/api/games/import", "text", TestPgn.SimpleGame);
 
-        var response = await client.GetAsync("/api/games/1/report?format=html");
+        var response = await session.GetAsync("/api/games/1/report?format=html");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("text/html", response.Content.Headers.ContentType?.MediaType);
 
@@ -190,10 +163,10 @@ public class IntegrationTests : IDisposable
     [Fact]
     public async Task Report_Text_ReturnsDownloadableAttachment()
     {
-        var client = _factory.CreateClient();
-        await client.PostAsync("/api/games/import", BuildImportRequest(TestPgn.SimpleGame));
+        using var session = WebSession.Create(_factory);
+        await session.PostTextFieldAsync("/api/games/import", "text", TestPgn.SimpleGame);
 
-        var response = await client.GetAsync("/api/games/1/report?format=text");
+        var response = await session.GetAsync("/api/games/1/report?format=text");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("text/plain", response.Content.Headers.ContentType?.MediaType);
         Assert.Equal("attachment", response.Content.Headers.ContentDisposition?.DispositionType);
@@ -207,9 +180,27 @@ public class IntegrationTests : IDisposable
     [Fact]
     public async Task Report_UnknownGame_ReturnsNotFound()
     {
-        var client = _factory.CreateClient();
-        var response = await client.GetAsync("/api/games/999/report?format=html");
+        using var session = WebSession.Create(_factory);
+        var response = await session.GetAsync("/api/games/999/report?format=html");
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Import_WithoutCsrfToken_ReturnsBadRequest()
+    {
+        // 写操作必须带防伪 token,前端统一在 CG.fetchJson 里加
+        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            HandleCookies = false,
+            AllowAutoRedirect = false,
+        });
+
+        var multi = new MultipartFormDataContent();
+        multi.Add(new StringContent(TestPgn.SimpleGame), "text");
+        var response = await client.PostAsync("/api/games/import", multi);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        client.Dispose();
     }
 
     private sealed class ImportResponse
