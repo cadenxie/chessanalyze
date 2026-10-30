@@ -20,7 +20,7 @@
                 <div id="engine-platform" class="mono small">@Model.PlatformName</div>
             </div>
 
-            <div id="platform-warning" class="small" style="color:#e88; margin-top:8px; @(Model.Engine.PlatformMismatch ? "" : "display:none;")">
+            <div id="platform-warning" class="small text-error" style="margin-top:8px; @(Model.Engine.PlatformMismatch ? "" : "display:none;")">
                 已安装的引擎与当前运行平台不一致,请重新下载对应平台的引擎。
             </div>
 
@@ -45,7 +45,7 @@
             <div class="progress" id="install-progress" style="display:none; margin-top:10px;">
                 <div id="install-bar" style="width:0%"></div>
             </div>
-            <div id="install-error" class="small" style="color:#e88; margin-top:8px;"></div>
+            <div id="install-error" class="small text-error" style="margin-top:8px;"></div>
 
             <h3>手动指定引擎路径</h3>
             <p class="small muted">如果自动下载失败(例如网络受限),可以手动下载 Stockfish 后在这里填写可执行文件的完整路径。</p>

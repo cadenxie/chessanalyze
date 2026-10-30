@@ -11,7 +11,7 @@
 
             @if (!string.IsNullOrEmpty(Model.Error))
             {
-                <p class="small" style="color:#e88;">@Model.Error</p>
+                <p class="small text-error">@Model.Error</p>
             }
 
             <form method="post" action="/Account/Register">

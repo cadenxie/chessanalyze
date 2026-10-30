@@ -10,12 +10,12 @@
 
     @if (!string.IsNullOrEmpty(error))
     {
-        <p class="small" style="color:#e88;">@error</p>
+        <p class="small text-error">@error</p>
     }
 
     @if (!string.IsNullOrEmpty(temp))
     {
-        <p class="small" style="color:#7fd;">
+        <p class="small text-ok">
             临时密码:<span class="mono">@temp</span>(只显示这一次,请转告用户后尽快让 TA 修改)
         </p>
     }

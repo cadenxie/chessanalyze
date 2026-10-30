@@ -38,7 +38,9 @@ public sealed record MoveClassification(
     string? BestMoveUci = null,
     string? BestMoveSan = null,
     int? EvalBeforeCp = null,
-    int? EvalAfterCp = null);
+    int? EvalAfterCp = null,
+    IReadOnlyList<string>? BestLineSan = null,
+    IReadOnlyList<string>? BestLineUci = null);
 
 public sealed record AnalysisSummary(
     int GameId,
@@ -51,6 +53,9 @@ public sealed record AnalysisSummary(
 /// </summary>
 public sealed class GameAnalyzer
 {
+    /// <summary>「最佳续着」展示的手数:引擎 PV 的前 N 手。</summary>
+    public const int BestLineLength = 4;
+
     private readonly IDbContextFactory<AppDbContext> _factory;
     private readonly EngineManager _engine;
     private readonly SettingsStore _settings;
@@ -315,7 +320,12 @@ public sealed class GameAnalyzer
         }
 
         var classifications = new List<MoveClassification>();
-        var fenByPly = moves.ToDictionary(m => m.Ply, m => m.Fen);
+        var initialFen = game.InitialFen ?? "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+        var fenByPly = new Dictionary<int, string> { [0] = initialFen };
+        foreach (var m in moves)
+        {
+            fenByPly[m.Ply] = m.Fen;
+        }
         for (int i = 0; i < moves.Count; i++)
         {
             var move = moves[i];
@@ -342,9 +352,17 @@ public sealed class GameAnalyzer
 
             // 引擎在这个局面推荐的着法(走子前的 PV 首着),转成 SAN 方便直接展示
             string? bestSan = null;
-            if (topMove is not null && fenByPly.TryGetValue(beforePly, out var beforeFen))
+            IReadOnlyList<string> bestLineSan = Array.Empty<string>();
+            IReadOnlyList<string> bestLineUci = Array.Empty<string>();
+            if (fenByPly.TryGetValue(beforePly, out var beforeFen))
             {
-                bestSan = SanConverter.ToSan(beforeFen, topMove);
+                if (topMove is not null)
+                {
+                    bestSan = SanConverter.ToSan(beforeFen, topMove);
+                }
+
+                // 最佳续着:这个局面上引擎 PV 的前几手,用来在坏棋下面直接展示「应该怎么走」
+                (bestLineUci, bestLineSan) = BuildBestLine(beforeFen, before.Pv);
             }
 
             // 走子方视角的前后分值(正数对走子方有利),用于「漏着」判定
@@ -355,10 +373,36 @@ public sealed class GameAnalyzer
 
             var cls = MoveClassifier.Classify(loss, isTop, inTop, missedWin);
             classifications.Add(new MoveClassification(
-                move.Ply, move.San, cls, loss, isTop, inTop, topMove, bestSan, evalBefore, evalAfter));
+                move.Ply, move.San, cls, loss, isTop, inTop, topMove, bestSan, evalBefore, evalAfter,
+                bestLineSan, bestLineUci));
         }
 
         return new AnalysisSummary(gameId, version, points, classifications);
+    }
+
+    /// <summary>
+    /// 从某个局面的引擎 PV 里截出「最佳续着」,并转成 SAN。
+    ///
+    /// UCI 与 SAN 一一对应:SAN 转换中途失败时,两边按已转换的步数截齐,
+    /// 前端按下标取用不会错位。
+    /// </summary>
+    public static (IReadOnlyList<string> Uci, IReadOnlyList<string> San) BuildBestLine(string? fen, string? pv)
+    {
+        if (string.IsNullOrWhiteSpace(fen) || string.IsNullOrWhiteSpace(pv))
+        {
+            return (Array.Empty<string>(), Array.Empty<string>());
+        }
+
+        var uci = pv.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Take(BestLineLength)
+            .ToList();
+        if (uci.Count == 0)
+        {
+            return (Array.Empty<string>(), Array.Empty<string>());
+        }
+
+        var san = SanConverter.ToSanList(fen, string.Join(' ', uci));
+        return (uci.Take(san.Count).ToList(), san);
     }
 
     /// <summary>

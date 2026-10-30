@@ -57,6 +57,9 @@ public sealed class ReviewViewModel
     public int PlyCount { get; set; }
     public string PgnText { get; set; } = "";
     public IReadOnlyList<ReviewMove> Moves { get; set; } = Array.Empty<ReviewMove>();
+
+    /// <summary>开局局面 FEN;棋盘从 ply 0 的局面开始摆。</summary>
+    public string InitialFen { get; set; } = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     public bool EngineInstalled { get; set; }
     public string? EngineVersion { get; set; }
 }

@@ -186,6 +186,9 @@ public class GamesApiController : ControllerBase
                 c.BestMoveSan,
                 c.EvalBeforeCp,
                 c.EvalAfterCp,
+                // 最佳续着:坏棋下面直接展示引擎在这个局面上的主线
+                c.BestLineSan,
+                c.BestLineUci,
             }),
         });
     }

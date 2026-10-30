@@ -12,12 +12,12 @@
 
             @if (Model.MustChangePassword || force)
             {
-                <p class="small" style="color:#e8a;">这个账号必须先修改密码才能继续使用。</p>
+                <p class="small text-warn">这个账号必须先修改密码才能继续使用。</p>
             }
 
             @if (changed)
             {
-                <p class="small" style="color:#7fd;">密码已修改。</p>
+                <p class="small text-ok">密码已修改。</p>
             }
 
             <div class="kv">
@@ -37,7 +37,7 @@
 
             @if (!string.IsNullOrEmpty(Model.Error))
             {
-                <p class="small" style="color:#e88;">@Model.Error</p>
+                <p class="small text-error">@Model.Error</p>
             }
 
             <form method="post" action="/Account/Profile">

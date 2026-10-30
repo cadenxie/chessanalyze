@@ -263,21 +263,21 @@ public static class ReportBuilder
         }
 
         // 背景与 0 线
-        sb.Append($"<rect x=\"0\" y=\"0\" width=\"{ChartWidth}\" height=\"{ChartHeight}\" fill=\"#171b23\" rx=\"8\"/>");
-        sb.Append($"<line x1=\"{ChartPadX}\" y1=\"{Y(0):F1}\" x2=\"{ChartWidth - 12}\" y2=\"{Y(0):F1}\" stroke=\"#3a4150\" stroke-width=\"1\"/>");
-        sb.Append($"<text x=\"4\" y=\"{Y(1000) + 4:F1}\" fill=\"#6b7383\" font-size=\"10\">+10</text>");
-        sb.Append($"<text x=\"4\" y=\"{Y(0) + 4:F1}\" fill=\"#6b7383\" font-size=\"10\">0</text>");
-        sb.Append($"<text x=\"4\" y=\"{Y(-1000) + 4:F1}\" fill=\"#6b7383\" font-size=\"10\">-10</text>");
+        sb.Append($"<rect x=\"0\" y=\"0\" width=\"{ChartWidth}\" height=\"{ChartHeight}\" fill=\"#faf8f4\" stroke=\"#e7e1d6\" rx=\"8\"/>");
+        sb.Append($"<line x1=\"{ChartPadX}\" y1=\"{Y(0):F1}\" x2=\"{ChartWidth - 12}\" y2=\"{Y(0):F1}\" stroke=\"#ded7ca\" stroke-width=\"1\"/>");
+        sb.Append($"<text x=\"4\" y=\"{Y(1000) + 4:F1}\" fill=\"#857d72\" font-size=\"10\">+10</text>");
+        sb.Append($"<text x=\"4\" y=\"{Y(0) + 4:F1}\" fill=\"#857d72\" font-size=\"10\">0</text>");
+        sb.Append($"<text x=\"4\" y=\"{Y(-1000) + 4:F1}\" fill=\"#857d72\" font-size=\"10\">-10</text>");
 
         if (points.Count < 2)
         {
-            sb.Append($"<text x=\"{ChartWidth / 2}\" y=\"{ChartHeight / 2}\" fill=\"#6b7383\" font-size=\"13\" text-anchor=\"middle\">暂无评估数据</text>");
+            sb.Append($"<text x=\"{ChartWidth / 2}\" y=\"{ChartHeight / 2}\" fill=\"#857d72\" font-size=\"13\" text-anchor=\"middle\">暂无评估数据</text>");
             sb.AppendLine("</svg>");
             return sb.ToString();
         }
 
         // 折线
-        sb.Append("<polyline fill=\"none\" stroke=\"#5b8dd6\" stroke-width=\"1.8\" points=\"");
+        sb.Append("<polyline fill=\"none\" stroke=\"#4f46e5\" stroke-width=\"1.8\" points=\"");
         foreach (var p in points.OrderBy(p => p.Ply))
         {
             sb.Append($"{X(p.Ply):F1},{Y(p.Cp):F1} ");
@@ -291,7 +291,7 @@ public static class ReportBuilder
             if (point.Ply == 0 && c.Ply != 0) { continue; }
             var x = X(c.Ply);
             var y = Y(point.Cp);
-            var color = c.Class == MoveClass.MissedWin ? "#a371f7" : c.Class == MoveClass.Inaccuracy ? "#e3b341" : "#f85149";
+            var color = c.Class == MoveClass.MissedWin ? "#7c3aed" : c.Class == MoveClass.Inaccuracy ? "#c07c12" : "#c02b2b";
             sb.Append($"<line x1=\"{x - 4:F1}\" y1=\"{y - 4:F1}\" x2=\"{x + 4:F1}\" y2=\"{y + 4:F1}\" stroke=\"{color}\" stroke-width=\"2\"/>");
             sb.Append($"<line x1=\"{x - 4:F1}\" y1=\"{y + 4:F1}\" x2=\"{x + 4:F1}\" y2=\"{y - 4:F1}\" stroke=\"{color}\" stroke-width=\"2\"/>");
         }
@@ -347,33 +347,33 @@ public static class ReportBuilder
         || (ch >= 0xFFE0 && ch <= 0xFFE6);
 
     private const string HtmlStyle = """
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;background:#14161c;color:#e6e9ef;margin:0;padding:28px 18px}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;background:#f4f2ed;color:#26221c;margin:0;padding:28px 18px}
 main{max-width:980px;margin:0 auto}
 h1{font-size:24px;margin:0 0 4px}
-h2{font-size:16px;margin:0 0 12px;color:#9fb3d1}
-h1 .vs{color:#6b7383;font-size:16px;font-weight:400;margin:0 6px}
-header{border-bottom:1px solid #2a3040;padding-bottom:14px;margin-bottom:22px}
-header .result{color:#e0b341;margin:6px 0 0;font-size:15px}
-section{background:#1b1f28;border:1px solid #2a3040;border-radius:10px;padding:16px 18px;margin-bottom:18px}
+h2{font-size:15px;margin:0 0 12px;color:#857d72}
+h1 .vs{color:#857d72;font-size:16px;font-weight:400;margin:0 6px}
+header{border-bottom:1px solid #e7e1d6;padding-bottom:14px;margin-bottom:22px}
+header .result{color:#4f46e5;margin:6px 0 0;font-size:15px}
+section{background:#fff;border:1px solid #e7e1d6;border-radius:14px;padding:16px 18px;margin-bottom:18px;box-shadow:0 1px 2px rgba(38,34,29,.05),0 12px 28px rgba(38,34,29,.06)}
 table{border-collapse:collapse;width:100%}
-table.kv th{text-align:left;color:#8b93a5;font-weight:400;width:110px;padding:5px 10px 5px 0;vertical-align:top}
+table.kv th{text-align:left;color:#857d72;font-weight:400;width:110px;padding:5px 10px 5px 0;vertical-align:top}
 table.kv td{padding:5px 0}
 .chips{display:flex;flex-wrap:wrap;gap:10px}
-.chip{display:inline-flex;align-items:center;gap:6px;background:#232936;border:1px solid #2f3646;border-radius:999px;padding:4px 12px;font-size:13px}
+.chip{display:inline-flex;align-items:center;gap:6px;background:#faf8f4;border:1px solid #e7e1d6;border-radius:999px;padding:4px 12px;font-size:13px}
 .chip i{width:9px;height:9px;border-radius:50%;display:inline-block}
-.mc-best{background:#3fb950}.mc-excellent{background:#56d364}.mc-good{background:#7d8798}
-.mc-inaccuracy{background:#e3b341}.mc-mistake{background:#f0883e}.mc-blunder{background:#f85149}.mc-missed{background:#a371f7}
+.mc-best{background:#2f7d57}.mc-excellent{background:#3f7fbf}.mc-good{background:#7b8794}
+.mc-inaccuracy{background:#c07c12}.mc-mistake{background:#d0563f}.mc-blunder{background:#c02b2b}.mc-missed{background:#7c3aed}
 table.movetable{font-size:13px}
-table.movetable th{text-align:left;color:#8b93a5;font-weight:400;padding:6px 8px;border-bottom:1px solid #2a3040}
-table.movetable td{padding:5px 8px;border-bottom:1px solid #222836;vertical-align:top}
-table.movetable td.no{color:#8b93a5;width:46px}
-table.movetable td.san{font-family:Consolas,monospace;color:#e6e9ef;white-space:nowrap}
-table.movetable td.score{font-family:Consolas,monospace;color:#9fb3d1;white-space:nowrap}
-table.movetable td.rec{font-family:Consolas,monospace;color:#56d364;white-space:nowrap}
-.badge{display:inline-block;border-radius:4px;padding:1px 7px;font-size:12px;color:#14161c;white-space:nowrap}
-.badge.mc-best{background:#3fb950}.badge.mc-excellent{background:#56d364}.badge.mc-good{background:#7d8798}
-.badge.mc-inaccuracy{background:#e3b341}.badge.mc-mistake{background:#f0883e}.badge.mc-blunder{background:#f85149}.badge.mc-missed{background:#a371f7}
-.hint{color:#6b7383;font-size:12px;margin:10px 0 0}
+table.movetable th{text-align:left;color:#857d72;font-weight:400;padding:6px 8px;border-bottom:1px solid #e7e1d6}
+table.movetable td{padding:5px 8px;border-bottom:1px solid #f0ece4;vertical-align:top}
+table.movetable td.no{color:#857d72;width:46px}
+table.movetable td.san{font-family:Consolas,monospace;color:#26221c;white-space:nowrap}
+table.movetable td.score{font-family:Consolas,monospace;color:#857d72;white-space:nowrap}
+table.movetable td.rec{font-family:Consolas,monospace;color:#2f7d57;white-space:nowrap}
+.badge{display:inline-block;border-radius:999px;padding:1px 9px;font-size:12px;color:#26221c;white-space:nowrap}
+.badge.mc-best{background:#eaf5ef;color:#2f7d57}.badge.mc-excellent{background:#eaf2fb;color:#3f7fbf}.badge.mc-good{background:#f0f2f4;color:#7b8794}
+.badge.mc-inaccuracy{background:#fdf3e2;color:#c07c12}.badge.mc-mistake{background:#fdeee9;color:#d0563f}.badge.mc-blunder{background:#fdeaea;color:#c02b2b}.badge.mc-missed{background:#f2ecfd;color:#7c3aed}
+.hint{color:#857d72;font-size:12px;margin:10px 0 0}
 svg{width:100%;height:auto;display:block}
 """;
 }

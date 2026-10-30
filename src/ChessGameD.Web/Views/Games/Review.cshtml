@@ -2,6 +2,7 @@
 @using System.Text.Json
 @{
     ViewData["Title"] = "复盘";
+    ViewData["ContainerClass"] = "wide";
     // 必须用 Web 默认值(驼峰):前端读的是 move.fen / move.san,默认的 PascalCase 会让它们全是 undefined
     var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
     var payload = new
@@ -12,104 +13,136 @@
         result = Model.Result,
         engineInstalled = Model.EngineInstalled,
         engineVersion = Model.EngineVersion,
+        initialFen = Model.InitialFen,
         moves = Model.Moves.Select(m => new { m.Ply, m.San, m.Uci, m.Fen, m.Comment }).ToList(),
     };
 }
 
-<div class="panel" style="padding: 12px 16px;">
-    <div class="game-header">
-        <span class="players">@Model.White <span class="muted">vs</span> @Model.Black</span>
-        <span class="badge">@Model.Result</span>
-        @if (!string.IsNullOrWhiteSpace(Model.Opening))
-        {
-            <span class="badge">@(Model.Eco != null ? Model.Eco + " · " : "")@Model.Opening</span>
-        }
-        @if (!string.IsNullOrWhiteSpace(Model.Date))
-        {
-            <span class="small muted">@Model.Date</span>
-        }
-        @if (Model.WhiteElo.HasValue || Model.BlackElo.HasValue)
-        {
-            <span class="small muted">@(Model.WhiteElo?.ToString() ?? "-") / @(Model.BlackElo?.ToString() ?? "-")</span>
-        }
-        <span class="spacer" style="flex:1"></span>
-        <span class="small muted" id="engine-hint"></span>
-    </div>
-</div>
-
 <div class="review-layout">
-    <div class="review-board">
-        <div id="board"></div>
+    @* ---------- 左栏:棋盘 + 当前局面 + 评估曲线 ---------- *@
+    <section class="col col-board">
+        <div class="panel game-card">
+            <div class="players">
+                <span class="w">@Model.White</span>
+                <span class="result">@Model.Result</span>
+                <span class="b">@Model.Black</span>
+            </div>
+            <div class="small muted">
+                @if (!string.IsNullOrWhiteSpace(Model.Opening))
+                {
+                    <text>@(Model.Eco != null ? Model.Eco + " · " : "")@Model.Opening</text>
+                }
+                @if (!string.IsNullOrWhiteSpace(Model.Date))
+                {
+                    <text> · @Model.Date</text>
+                }
+                @if (Model.WhiteElo.HasValue || Model.BlackElo.HasValue)
+                {
+                    <text> · @(Model.WhiteElo?.ToString() ?? "-") / @(Model.BlackElo?.ToString() ?? "-")</text>
+                }
+                @if (!string.IsNullOrWhiteSpace(Model.Event))
+                {
+                    <text> · @Model.Event</text>
+                }
+            </div>
+        </div>
 
-        <div class="nav-bar">
+        <div class="board-row">
+            <div id="board" class="board"></div>
+            <div class="gauge" id="gauge" title="评估条:下方为白方">
+                <div class="gauge-black" id="gauge-black"></div>
+                <div class="gauge-white" id="gauge-white"></div>
+                <div class="gauge-label" id="gauge-label">—</div>
+            </div>
+        </div>
+
+        <div class="nav">
             <button id="btn-first" title="回到开局 (Home)">⏮</button>
             <button id="btn-prev" title="上一步 (←)">◀</button>
             <span class="ply-label" id="ply-label">开局</span>
             <button id="btn-next" title="下一步 (→)">▶</button>
             <button id="btn-last" title="到最后 (End)">⏭</button>
             <button id="btn-flip" title="翻转棋盘 (F)">翻转</button>
-            <button id="btn-pv-back" title="结束主变演示,回到棋局当前局面" style="display:none;">返回原局面</button>
+            <button id="btn-back" class="hidden" title="回到棋局当前局面">返回原局面</button>
         </div>
 
-        <div class="small muted" id="pv-status" style="min-height:18px; margin-top:6px;"></div>
-
-        <div class="eval-bar-wrap">
-            <div class="eval-bar">
-                <div class="white" id="eval-white" style="width:50%"></div>
-                <div class="mid"></div>
-                <div class="label" id="eval-label">—</div>
-            </div>
-        </div>
-        <div class="small muted" id="eval-detail">尚未分析当前局面。</div>
-    </div>
-
-    <div class="review-side">
-        <div class="panel">
-            <h2>引擎分析</h2>
-            <div class="row" style="gap:8px; margin-bottom:12px;">
-                <button class="primary" id="btn-analyze">分析本局</button>
-                <button id="btn-analyze-force" title="忽略缓存,全部重算">重新分析</button>
-                <button id="btn-stop" disabled>停止</button>
-            </div>
-            <div class="progress" id="analysis-progress" style="display:none;"><div id="analysis-bar" style="width:0%"></div></div>
-            <div class="small muted" id="analysis-status" style="margin-top:6px;"></div>
-            <div class="kv" style="margin-top:10px;">
-                <div class="k">引擎推荐</div><div class="mono" id="stored-rec">—</div>
-            </div>
-            <div id="instant-panel" style="margin-top:12px;">
-                <div class="kv">
-                    <div class="k">当前分值</div><div class="mono" id="inst-score">—</div>
-                    <div class="k">深度</div><div class="mono" id="inst-depth">—</div>
-                    <div class="k">节点</div><div class="mono" id="inst-nodes">—</div>
-                </div>
-                <h3>主变 (PV)</h3>
-                <div class="pv-line" id="inst-pv">—</div>
-                <div class="small muted">点击主变里的着法,棋盘会从当前局面逐步演示到那一步。</div>
-                <h3>候选</h3>
-                <div class="candidate-list" id="inst-candidates"></div>
-            </div>
-        </div>
+        <div class="small muted status" id="pv-status"></div>
 
         <div class="panel">
-            <h2>走法</h2>
-            <div class="movelist" id="movelist"></div>
+            <h2>当前局面</h2>
+            <div class="kv">
+                <span class="k">分值</span>
+                <span class="mono" id="inst-score">—</span>
+                <span class="k">深度</span>
+                <span class="mono" id="inst-depth">—</span>
+                <span class="k">节点</span>
+                <span class="mono" id="inst-nodes">—</span>
+            </div>
+            <h3>主变 (PV)</h3>
+            <div class="pv" id="inst-pv">—</div>
+            <div class="small muted" id="eval-detail"></div>
+            <div class="small muted">点主变里的着法,棋盘会从当前局面逐步演示过去。</div>
+            <h3>候选</h3>
+            <div class="cands" id="inst-cands"></div>
         </div>
 
         <div class="panel">
             <h2>评估曲线</h2>
-            <canvas id="evalchart" width="800" height="300"></canvas>
-            <div class="small muted">横轴为步数,纵轴为相对白方的评估。点击曲线可跳转到对应局面。</div>
+            <canvas id="chart" height="220"></canvas>
+            <div class="small muted">横轴为步数,纵轴为相对白方的评估(向上为白方占优),点击曲线可跳转到对应局面。</div>
+        </div>
+    </section>
+
+    @* ---------- 右栏:引擎分析 + 走法与最佳行 + PGN ---------- *@
+    <section class="col col-side">
+        <div class="panel">
+            <h2>引擎分析</h2>
+            <div class="btn-row">
+                <button class="primary" id="btn-analyze">分析本局</button>
+                <button id="btn-analyze-force" title="忽略缓存,全部重算">重新分析</button>
+                <button id="btn-stop" disabled>停止</button>
+            </div>
+            <div class="progress hidden" id="analysis-progress"><div id="analysis-bar" style="width:0%"></div></div>
+            <div class="small muted" id="analysis-status" style="margin-top:6px;">
+                整局分析会依次评估每个局面,并给出走子分类与最佳续着。
+            </div>
+            <div class="kv" style="margin-top:10px;">
+                <span class="k">引擎推荐</span>
+                <span class="mono" id="stored-rec">—</span>
+            </div>
+            <div class="small muted" id="engine-hint"></div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-head">
+                <h2>走法与最佳行</h2>
+                <span class="head-actions">
+                    <button id="btn-next-problem" class="small" title="跳到下一个需要复盘的着法">下一个问题手</button>
+                    <span class="small muted" id="moves-summary">尚未分析</span>
+                </span>
+            </div>
+            <div class="movelist" id="movelist"></div>
+            <div class="legend small muted">
+                <span class="chip mc-best">最佳</span>
+                <span class="chip mc-excellent">优秀</span>
+                <span class="chip mc-good">良好</span>
+                <span class="chip mc-inaccuracy">失误</span>
+                <span class="chip mc-mistake">错误</span>
+                <span class="chip mc-blunder">严重失误</span>
+                <span class="chip mc-missed">漏着</span>
+                <span class="legend-note">坏棋下面会挂一行引擎的最佳续着,点它可以在棋盘上演示。</span>
+            </div>
         </div>
 
         <div class="panel">
             <h2>PGN 与导出</h2>
-            <div class="row" style="gap:8px; margin-bottom:10px; flex-wrap:wrap;">
+            <div class="btn-row">
                 <a class="btn" id="btn-report-html" href="#" target="_blank" rel="noopener">导出 HTML 报告</a>
                 <button id="btn-report-text">导出文本报告</button>
             </div>
             <div class="pgn-text" id="pgn-text">@Model.PgnText</div>
         </div>
-    </div>
+    </section>
 </div>
 
 <script id="game-data" type="application/json">@Html.Raw(JsonSerializer.Serialize(payload, jsonOptions))</script>

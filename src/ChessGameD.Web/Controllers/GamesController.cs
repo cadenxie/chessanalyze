@@ -104,6 +104,7 @@ public class GamesController : Controller
             BlackElo = game.BlackElo,
             PlyCount = game.PlyCount,
             PgnText = game.PgnText,
+            InitialFen = game.InitialFen ?? "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
             Moves = moves.Select(m => new ReviewMove(m.Ply, m.San, m.Uci, m.Fen, m.Comment)).ToList(),
             EngineInstalled = engineStatus.IsInstalled,
             EngineVersion = engineStatus.Version,
