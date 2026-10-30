@@ -395,6 +395,9 @@ table.games td.result { font-weight: 700; }
 .brow .bmark { color: var(--accent); font-size: 12px; }
 .brow .bline { font-family: var(--mono); font-size: 12px; color: #4a4a68; }
 .brow .bline b { color: var(--accent); }
+.brow .bstep { cursor: pointer; border-radius: 4px; padding: 0 2px; }
+.brow .bstep:hover { background: #e3e2fb; color: var(--accent); }
+.brow .bstep:first-child { color: var(--accent); font-weight: 600; }
 .brow .bloss { margin-left: auto; font-size: 11px; color: var(--text-dim); white-space: nowrap; }
 .brow.playing { background: var(--accent-soft); border-left-style: solid; }
 

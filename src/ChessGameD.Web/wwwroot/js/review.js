@@ -3,11 +3,22 @@ import { Arrows, ARROW_TYPE } from '/lib/cm-chessboard/src/extensions/arrows/Arr
 import { Chess } from '/lib/chess.js/chess.js';
 
 const data = CG.readJsonScript('game-data');
-const moves = data ? data.moves : [];
+const allMoves = data ? data.moves : [];
 const gameId = data ? data.gameId : 0;
 const initialFen = data && data.initialFen
     ? data.initialFen
     : 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+
+// ply 0 是初始局面,不算一步;走法列表只留真正的着法。
+const moves = allMoves.filter(function (m) { return m.ply > 0; });
+
+// ply -> 局面 FEN。走法行按 ply 查,不会因为数据里多了一条初始局面而错位。
+const fenByPly = { 0: initialFen };
+const moveByPly = {};
+allMoves.forEach(function (m) {
+    fenByPly[m.ply] = m.fen;
+    if (m.ply > 0) { moveByPly[m.ply] = m; }
+});
 
 const state = {
     ply: 0,                 // 当前局面(0 = 开局)
@@ -47,10 +58,10 @@ function delay(ms) {
     return new Promise(function (resolve) { setTimeout(resolve, ms); });
 }
 
-/** 走完第 ply 手之后的局面。moves[i] 是第 i+1 手,fen 是走完之后的局面。 */
+/** 走完第 ply 手之后的局面(ply = 0 就是初始局面)。 */
 function fenOf(ply) {
-    if (ply <= 0) { return initialFen; }
-    return moves[ply - 1].fen;
+    if (!ply || ply <= 0) { return initialFen; }
+    return fenByPly[ply] || initialFen;
 }
 
 function pointOf(ply) {
@@ -146,6 +157,7 @@ function buildMoveRow(move, cls) {
 /**
  * 最佳步骤行:引擎在这个局面上的主线。
  * 服务端已经把它转成了 SAN,这里只负责排版与点击演示。
+ * 行内每一着都能单独点:棋盘从出错前的局面演示到那一步为止。
  */
 function buildBestRow(cls, move) {
     const row = document.createElement('div');
@@ -157,13 +169,25 @@ function buildBestRow(cls, move) {
     mark.textContent = '↳';
     row.appendChild(mark);
 
+    const startFen = fenOf(move.ply - 1);
+    const uci = cls.bestLineUci || [];
+
     const line = document.createElement('span');
     line.className = 'bline';
     cls.bestLineSan.forEach(function (san, index) {
-        if (index > 0) { line.appendChild(document.createTextNode(' ')); }
-        const text = document.createElement(index === 0 ? 'b' : 'span');
-        text.textContent = san;
-        line.appendChild(text);
+        const step = document.createElement('span');
+        step.className = 'bstep';
+        step.textContent = san;
+        step.title = '点击:演示到这一步';
+        step.addEventListener('click', function (e) {
+            e.stopPropagation();
+            if (!uci.length) { return; }
+            playLine(startFen, uci.slice(0, index + 1), 'best', move.ply);
+        });
+        line.appendChild(step);
+        if (index < cls.bestLineSan.length - 1) {
+            line.appendChild(document.createTextNode(' '));
+        }
     });
     row.appendChild(line);
 
@@ -174,7 +198,7 @@ function buildBestRow(cls, move) {
 
     row.title = '点击:从这一步之前的局面开始,演示引擎的最佳续着';
     row.addEventListener('click', function () {
-        playLine(fenOf(move.ply - 1), cls.bestLineUci || [], 'best', move.ply);
+        playLine(startFen, uci, 'best', move.ply);
     });
 
     return row;
@@ -205,7 +229,7 @@ function updateSummary() {
 
 function goTo(ply) {
     stopPlayback();
-    state.ply = Math.max(0, Math.min(moves.length - 1, ply));
+    state.ply = Math.max(0, Math.min(moves.length, ply));
     state.trialFen = null;
 
     board.setPosition(fenOf(state.ply), true);
@@ -225,8 +249,9 @@ function updateHeader() {
         label.textContent = '开局';
         return;
     }
-    // moves[i] 是第 i+1 手,所以第 ply 手对应 moves[ply - 1]
-    const move = moves[state.ply - 1];
+    // 按 ply 取这一步的着法
+    const move = moveByPly[state.ply];
+    if (!move) { return; }
     label.textContent = Math.ceil(state.ply / 2) + (move.ply % 2 === 1 ? '. ' : '… ') + move.san;
 }
 

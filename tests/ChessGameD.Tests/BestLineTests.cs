@@ -23,15 +23,32 @@ public class BestLineTests
     }
 
     [Fact]
-    public void BuildBestLine_最多取BestLineLength手()
+    public void BuildBestLine_展示引擎主线的全部手数()
     {
         var pv = "e2e4 e7e5 g1f3 b8c6 f1c4 f8c5";
 
         var (uci, san) = GameAnalyzer.BuildBestLine(StartFen, pv);
 
-        Assert.Equal(GameAnalyzer.BestLineLength, uci.Count);
-        Assert.Equal(GameAnalyzer.BestLineLength, san.Count);
+        // 主线有几手就展示几手(只留一个上限)
+        Assert.Equal(pv.Split(' ').Length, uci.Count);
+        Assert.Equal(pv.Split(' ').Length, san.Count);
         Assert.Equal("e4", san[0]);
+        Assert.Equal("Bc5", san[5]);
+    }
+
+    [Fact]
+    public void BuildBestLine_主线特别长时按上限截断()
+    {
+        // 20 手的合法主线(西班牙开局主变)
+        var pv = "e2e4 e7e5 g1f3 b8c6 f1b5 a7a6 b5a4 g8f6 e1g1 f8e7 f1e1 b7b5 "
+               + "a4b3 d7d6 c2c3 e8g8 h2h3 c6b8 d2d4 b8d7";
+
+        var (uci, san) = GameAnalyzer.BuildBestLine(StartFen, pv);
+
+        Assert.Equal(GameAnalyzer.BestLineMaxLength, uci.Count);
+        Assert.Equal(GameAnalyzer.BestLineMaxLength, san.Count);
+        Assert.Equal("e4", san[0]);
+        Assert.Equal("O-O", san[15]);   // 第 16 手是黑方易位
     }
 
     [Fact]

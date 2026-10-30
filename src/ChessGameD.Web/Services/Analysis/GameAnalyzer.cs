@@ -54,7 +54,8 @@ public sealed record AnalysisSummary(
 public sealed class GameAnalyzer
 {
     /// <summary>「最佳续着」展示的手数:引擎 PV 的前 N 手。</summary>
-    public const int BestLineLength = 4;
+    /// <summary>最佳步骤行最多展示的手数:默认展示引擎主线的全部手数,这里留个上限防异常长。</summary>
+    public const int BestLineMaxLength = 16;
 
     private readonly IDbContextFactory<AppDbContext> _factory;
     private readonly EngineManager _engine;
@@ -394,7 +395,7 @@ public sealed class GameAnalyzer
         }
 
         var uci = pv.Split(' ', StringSplitOptions.RemoveEmptyEntries)
-            .Take(BestLineLength)
+            .Take(BestLineMaxLength)
             .ToList();
         if (uci.Count == 0)
         {
