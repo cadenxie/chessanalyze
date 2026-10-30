@@ -4,7 +4,39 @@
 
 ASP.NET Core MVC / .NET 8 / SQLite,前端零 npm 构建。
 
-> 只做复盘分析主线。**不包含**人机对弈、双人对弈、在线对战。
+> 复盘分析是主线,另有一条**指导对弈**支线(人 vs 陪练引擎,引擎兼做教练)。
+> **不包含**真人对战、在线房间。
+
+**在线测试站点:<http://chess.mazyflow.top>**
+
+---
+
+## 界面预览
+
+### 首页 · 导入与棋局列表
+
+![首页](docs/images/01.png)
+
+引擎状态、上传 / 粘贴 PGN、最近棋局列表都在首页。
+
+### 复盘分析页 · 棋盘、走子分类与评估曲线
+
+![分析](docs/images/02.png)
+
+左边棋盘(含竖向评估条)+ 评估曲线,右边引擎分析、走法与最佳行、坏棋下面挂引擎主线。
+
+### 指导对弈 · 人机对弈与教练记录
+
+![对弈](docs/images/03.png)
+
+四档难度、提示额度、悔棋额度都在这一页;每走一步引擎都会评估并留下教练批注。
+
+### 设置页 · 引擎安装与参数
+
+![设置](docs/images/04.png)
+
+一键安装 / 更新 Stockfish(按当前平台选官方包并校验 SHA-256)、手动指定路径、下载代理,
+以及线程数 / Hash / MultiPV / 分析深度等引擎参数。
 
 ---
 
@@ -277,7 +309,9 @@ ChessGameD.sln
 │       ├── css/ js/                # 自有样式与前端脚本
 │       └── lib/                    # vendored 的 chess.js / cm-chessboard
 ├── samples/example.pgn             # 示例 PGN(三局经典名局)
-├── docs/htmldemo/                 # 分析页的静态交互原型(不进发布产物)
+├── docs/
+│   ├── htmldemo/                 # 分析页的静态交互原型(不进发布产物)
+│   └── images/                   # README 用到的界面截图
 └── tests/
     ├── ChessGameD.Tests/           # xUnit 测试(207 个)
     └── ChessGameD.FakeEngine/      # 假的 UCI 引擎,给测试用
