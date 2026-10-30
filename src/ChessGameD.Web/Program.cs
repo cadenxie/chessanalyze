@@ -3,8 +3,8 @@ using ChessGameD.Web.Services.Analysis;
 using ChessGameD.Web.Services.App;
 using ChessGameD.Web.Services.Auth;
 using ChessGameD.Web.Services.Engine;
+using ChessGameD.Web.Services.Play;
 using ChessGameD.Web.Services.Pgn;
-using Microsoft.Data.Sqlite;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
@@ -109,9 +109,18 @@ builder.Services.AddSingleton<EnginePlatform>(_ => EnginePlatform.Detect());
 builder.Services.AddSingleton<SettingsStore>();
 builder.Services.AddSingleton<EngineManager>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<EngineManager>());
+
+// 陪练引擎:与分析引擎分开的第二个 Stockfish 进程,对弈要秒回,不能排在整局分析后面
+builder.Services.AddSingleton<CoachEngine>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<CoachEngine>());
+builder.Services.AddSingleton<ICoachEngine>(sp => sp.GetRequiredService<CoachEngine>());
+
 builder.Services.AddSingleton<EngineInstaller>();
 builder.Services.AddSingleton<PgnImportService>();
 builder.Services.AddSingleton<GameAnalyzer>();
+
+// 指导对弈
+builder.Services.AddScoped<PlayService>();
 
 // 项目 Git 信息(分支 + 提交号),构建时写进程序集元数据
 builder.Services.AddSingleton(GitInfo.FromAssembly(typeof(Program).Assembly));
@@ -132,39 +141,9 @@ await using (var scope = app.Services.CreateAsyncScope())
 {
     var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
     await using var db = await factory.CreateDbContextAsync();
-    var dbFile = db.Database.GetDbConnection().DataSource;
-    var dbPath = string.IsNullOrEmpty(dbFile) ? null : Path.GetFullPath(dbFile);
 
-    if (dbPath is null || !File.Exists(dbPath))
-    {
-        await db.Database.EnsureCreatedAsync();
-    }
-    else
-    {
-        var schemaOk = true;
-        try
-        {
-            // 探测表结构是否匹配;不匹配(例如换了 schema)则重建
-            await db.Games.AsNoTracking().Take(1).ToListAsync();
-            await db.Users.AsNoTracking().Take(1).ToListAsync();
-        }
-        catch (Exception)
-        {
-            schemaOk = false;
-        }
-
-        if (!schemaOk)
-        {
-            // 重建会把旧库删掉,先备份一份
-            await DatabaseBackup.BackupAsync(dbPath, startupLogger);
-
-            // 连接池里的连接还攥着库文件句柄,不清理掉就删不掉(会报「文件被占用」)
-            SqliteConnection.ClearAllPools();
-
-            await db.Database.EnsureDeletedAsync();
-            await db.Database.EnsureCreatedAsync();
-        }
-    }
+    // 增量迁移:老库打基线标记后只补新增的迁移,绝不删库重建
+    await DatabaseMigrator.MigrateAsync(db, startupLogger);
 
     // 种子管理员:账号名与口令来自本地配置 / 环境变量,真实值不进版本库
     var authOptions = app.Services.GetRequiredService<IOptions<AuthOptions>>().Value;

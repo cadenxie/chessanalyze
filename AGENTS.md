@@ -1,7 +1,8 @@
 # AGENTS.md
 
-自用的国际象棋复盘分析工具:导入 PGN → 棋盘逐步复盘 → Stockfish 引擎评估 → 走子分类与评估曲线。
-ASP.NET Core MVC / .NET 8 / SQLite,前端零 npm 构建。只做复盘分析主线,不含人机对弈与在线对战。
+自用的国际象棋工具:导入 PGN → 棋盘逐步复盘 → Stockfish 引擎评估 → 走子分类与评估曲线;
+外加一条**指导对弈**支线:人和陪练引擎下棋,引擎兼做教练(失误提示 + 悔棋 + 提示额度)。
+ASP.NET Core MVC / .NET 8 / SQLite,前端零 npm 构建。不含真人对战 / 在线房间。
 
 ## Setup commands
 
@@ -13,22 +14,26 @@ ASP.NET Core MVC / .NET 8 / SQLite,前端零 npm 构建。只做复盘分析主�
 - Test:         `dotnet test ChessGameD.sln`
 - Format:       `dotnet format ChessGameD.sln`(仓库无 .editorconfig,按默认规则,别顺手大改格式)
 - 调试:         VS Code 直接 F5,配置见 `.vscode/launch.json`(需装 C# 或 C# Dev Kit 扩展)
+- 迁移工具:     `dotnet tool restore`(本地清单 `.config/dotnet-tools.json`,锁 dotnet-ef 8.0.32);
+                加迁移:`dotnet ef migrations add <名字> --project src\ChessGameD.Web --startup-project src\ChessGameD.Web`
 
 ## Project layout
 
 - `src/ChessGameD.Web/` — ASP.NET Core MVC 站点,唯一可部署项目
-  - `Controllers/` — 页面控制器(Home / Games / Settings / Account)与 `Api/` 下的 JSON 接口
+  - `Controllers/` — 页面控制器(Home / Games / Play / Settings / Account)与 `Api/` 下的 JSON 接口
     - `Controllers/Admin/` — 管理员的用户管理页
-  - `Services/Engine/` — UCI 引擎客户端、引擎管理、先进先出分析队列、一键安装(自研,不用第三方 UCI 包)
+  - `Services/Engine/` — UCI 引擎客户端、引擎管理、先进先出分析队列、一键安装(自研,不用第三方 UCI 包)、陪练引擎(第二个进程)
   - `Services/Analysis/` — 走子分类、UCI→SAN 转换、整局分析作业
+  - `Services/Play/` — 指导对弈:会话、走子校验、提示额度、悔棋、陪练放水
   - `Services/Auth/` — 账号(注册/登录/改密)、密码哈希、归属过滤、匿名会话与定时清理
   - `Services/Pgn/` — PGN 清洗与导入
   - `Services/Reports/` — HTML / 纯文本报告生成
-  - `Data/` — EF Core 实体、DbContext、键值配置存储
+  - `Data/` — EF Core 实体、DbContext、键值配置存储、增量迁移器
+  - `Migrations/` — EF Core 迁移文件(**只加不改**,改了实体就往上加一条迁移)
   - `Models/` `Views/` `wwwroot/` — 视图模型、Razor 页面、前端资源
   - `App_Data/` — **运行时数据,已 gitignore**:SQLite 库 + 下载解压的 Stockfish
   - `wwwroot/lib/` — vendored 的 chess.js / cm-chessboard,**要进版本库**(自带 LICENSE)
-- `tests/ChessGameD.Tests/` — xUnit 测试(164 个用例)
+- `tests/ChessGameD.Tests/` — xUnit 测试(207 个用例)
 - `tests/ChessGameD.FakeEngine/` — 假 UCI 引擎,给测试用的独立控制台程序
 - `samples/example.pgn` — 示例 PGN
 - `.vscode/` — 团队共享的调试与任务配置,**不要忽略**
@@ -44,7 +49,7 @@ ASP.NET Core MVC / .NET 8 / SQLite,前端零 npm 构建。只做复盘分析主�
 
 ## Testing instructions
 
-- 全部测试: `dotnet test ChessGameD.sln`(xUnit,164 个用例)
+- 全部测试: `dotnet test ChessGameD.sln`(xUnit,207 个用例)
 - 单个测试类: `dotnet test tests\ChessGameD.Tests\ChessGameD.Tests.csproj --filter "FullyQualifiedName~PgnImportTests"`
 - 测试命名 `方法_场景_预期`,例如 `Import_SingleGame_StoresGameAndMoves`
 - 改了 `Services/` 下的逻辑就要补对应用例;导入、分类、报告这三块最容易回归
@@ -52,6 +57,9 @@ ASP.NET Core MVC / .NET 8 / SQLite,前端零 npm 构建。只做复盘分析主�
 - 账号模块的用例分几个类:`AccountTests`(注册登录改密)、`OwnershipIsolationTests`(用户之间互相看不到)、
   `AnonymousSessionTests`(匿名会话)、`AdminSettingsTests`(权限与种子管理员)、`AnonymousCleanupTests`(匿名数据清理)、
   `FifoGateTests`(引擎队列)
+- 指导对弈的用例:`PlayServiceTests`(走子、失误判定、提示额度、悔棋、终局)、`PlayApiTests`(HTTP 全流程与跨用户隔离)、
+  `MigrationTests`(增量迁移:老库打基线、数据保留、新库从零建表)
+- 陪练引擎在测试里用假的实现(`FakeCoachEngine`,实现 `ICoachEngine`),不拉真 Stockfish
 - 断言页面里的中文前要先 `WebUtility.HtmlDecode`:Razor 默认把非 ASCII 字符转成数字实体
 
 ## Key constraints
@@ -61,7 +69,10 @@ ASP.NET Core MVC / .NET 8 / SQLite,前端零 npm 构建。只做复盘分析主�
 - **导入全程串行**:`PgnParser` 内部有静态可变状态,并发解析会串味,必须走静态锁排队
 - **分值统一存"相对白方"**,分类用的损失量要按走子方符号还原
 - **UCI→SAN 在服务端做**(`Services/Analysis/SanConverter.cs`):引擎给的是 `e2e4`,人看的是 `e4`
-- **数据库用 `EnsureCreated()`**,没有引入 EF Migrations 工具链;启动时发现表结构不匹配会自动重建数据库
+- **数据库用 EF Core Migrations,只增不重建**:迁移文件在 `src/ChessGameD.Web/Migrations`;
+  改了实体就 `dotnet ef migrations add` 加一条迁移,**不许删库重建**;
+  启动时 `Data/DatabaseMigrator.cs` 负责:老库(没有迁移历史表的)先打 baseline 标记,
+  再只补新增的迁移,迁移前自动备份到 `App_Data/backup/`
 - **引擎包按平台选**:`Services/Engine/EnginePlatform.cs` 把「运行系统 + 架构 → 官方资产名 / 压缩格式」固化成一张表;
   Windows 官方包是 zip,Linux / macOS 官方包是 tar.gz,解压时按文件头判断格式,解压后要给引擎补执行权限
 - **引擎以独立进程通过 UCI 文本协议交互**,不链接、不分发 Stockfish;`UciEngineClient` 用 Channel 管道 + 单写锁,改它要保证能中断 `stop`
@@ -76,6 +87,14 @@ ASP.NET Core MVC / .NET 8 / SQLite,前端零 npm 构建。只做复盘分析主�
 - **管理员种子口令只由部署者注入**(`appsettings.Local.json` 或 `Chess__Admin__*` 环境变量),仓库里不留明文
 - **引擎只有一份,分析请求排先进先出队列**(`Services/Engine/FifoGate.cs`):整局分析与即时分析共用一条队列,
   排队时显示位次,不要改回「引擎忙」报错
+- **指导对弈用第二个引擎进程**(`Services/Engine/CoachEngine.cs`,1 线程 / 64MB):对弈要秒回,
+  不能排在整局分析后面;分析引擎仍只有一份,两者互不干扰
+- **对弈的走法以服务端为准**:合法性用 `ChessDotNetCore` 校验,浏览器只做动画与高亮;
+  落库的局面必须可信
+- **对弈额度**:提示额度只在「主动求提示」时扣(看评估免费),事后警报不扣;
+  悔棋额度每局单独算;额度在设置页可调(每局 0–10 次)
+- **对弈会话也走归属过滤**(`Services/Play/PlayOwnership.cs`),跨用户一律 404;
+  终局后棋谱写进 `Games` / `Moves`,教练批注写进 `GameMove.Comment`
 
 ## Commit conventions
 

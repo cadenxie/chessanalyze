@@ -11,12 +11,20 @@ public sealed class AppFactory : WebApplicationFactory<Program>
 {
     private readonly string _dir;
     private readonly (string Key, string Value)[] _settings;
+    private readonly Action<IServiceCollection>? _configureServices;
 
     public AppFactory(params (string Key, string Value)[] settings)
+        : this(null, settings)
+    {
+    }
+
+    /// <summary>带服务覆盖的构造(例如把陪练引擎换成假的)。</summary>
+    public AppFactory(Action<IServiceCollection>? configureServices, params (string Key, string Value)[] settings)
     {
         _dir = Path.Combine(Path.GetTempPath(), "chessgamed-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_dir);
         _settings = settings;
+        _configureServices = configureServices;
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -28,6 +36,11 @@ public sealed class AppFactory : WebApplicationFactory<Program>
         foreach (var (key, value) in _settings)
         {
             builder.UseSetting(key, value);
+        }
+
+        if (_configureServices is not null)
+        {
+            builder.ConfigureServices((_, services) => _configureServices(services));
         }
     }
 

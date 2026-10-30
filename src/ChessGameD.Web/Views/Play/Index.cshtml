@@ -1,0 +1,95 @@
+@model ChessGameD.Web.Models.PlayViewModel
+@{
+    ViewData["Title"] = "指导对弈";
+    ViewData["ContainerClass"] = "wide";
+}
+
+<div class="play-layout">
+    @* ---------- 左栏:棋盘 + 操作 ---------- *@
+    <section class="col col-board">
+        <div class="panel game-card">
+            <div class="players">
+                <span class="w">我(白)</span>
+                <span class="result" id="turn-label">准备开始</span>
+                <span class="b" id="opponent-label">陪练引擎</span>
+            </div>
+            <div class="small muted" id="session-info">还没开局</div>
+            <div id="engine-hint" class="small" style="margin-top:6px;"></div>
+        </div>
+
+        <div class="board-row">
+            <div id="board" class="board"></div>
+            <div class="gauge" id="gauge" title="评估条:下方为白方">
+                <div class="gauge-black" id="gauge-black"></div>
+                <div class="gauge-white" id="gauge-white"></div>
+                <div class="gauge-label" id="gauge-label">—</div>
+            </div>
+        </div>
+
+        <div class="nav">
+            <button id="btn-new" class="primary">新开一局</button>
+            <button id="btn-takeback" title="退回上一次的决策点">悔棋</button>
+            <button id="btn-resign" class="danger">认输</button>
+            <button id="btn-draw">和棋</button>
+            <button id="btn-flip" title="翻转棋盘">翻转</button>
+            @* 去复盘:棋局没结束前点它会提示,做大了方便用 *@
+            <button id="btn-review" class="primary big" title="对局结束后才能复盘">去复盘</button>
+        </div>
+
+        <div class="small muted status" id="status-line"></div>
+    </section>
+
+    @* ---------- 右栏:难度 / 提示 / 教练记录 ---------- *@
+    <section class="col">
+        <div class="panel">
+            <h2>新的一局</h2>
+            <label class="field">
+                <span>对手强度</span>
+                <select id="level-select">
+                    @foreach (var level in Model.Levels)
+                    {
+                        <option value="@level.Level" selected="@(level.Level == Model.DefaultLevel)">@level.Name</option>
+                    }
+                </select>
+            </label>
+            <p class="small muted" id="level-desc">
+                @Model.Levels.FirstOrDefault(l => l.Level == Model.DefaultLevel)?.Description
+            </p>
+            <p class="small muted">
+                陪练引擎是专门给对弈用的第二个引擎进程:它会按档位故意走一些次优着法,
+                你刚失误的时候也不会立刻抓——目的是让你把一盘棋下完,顺便把坏棋暴露出来。
+            </p>
+        </div>
+
+        <div class="panel">
+            <h2>求提示</h2>
+            <div class="row wrap" style="gap:8px;">
+                <button id="btn-hint-eval">看评估(免费)</button>
+                <button id="btn-hint-candidates">看候选(1 次)</button>
+                <button id="btn-hint-best">看最佳(1 次)</button>
+            </div>
+            <div class="small muted" style="margin-top:8px;" id="quota-line"></div>
+            <div id="hint-box" class="hint-box hidden"></div>
+        </div>
+
+        <div class="panel">
+            <h2>教练记录</h2>
+            <div id="coach-notes" class="coach-notes"></div>
+            <p class="small muted" style="margin-top:10px;">
+                事后警报(失误 / 错误 / 严重失误 / 漏着)不消耗次数,只做提示;
+                主动求提示才扣次数。对局结束后棋谱会存进棋局列表,可以直接进复盘页。
+            </p>
+        </div>
+    </section>
+</div>
+
+@section Scripts {
+    <script type="application/json" id="play-data">@Html.Raw(System.Text.Json.JsonSerializer.Serialize(new {
+        engineInstalled = Model.EngineInstalled,
+        engineVersion = Model.EngineVersion,
+        hintQuota = Model.HintQuota,
+        takebackQuota = Model.TakebackQuota,
+        levels = Model.Levels.Select(l => new { l.Level, l.Name, l.Description })
+    }, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)))</script>
+    <script type="module" src="~/js/play.js"></script>
+}

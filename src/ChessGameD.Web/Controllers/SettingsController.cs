@@ -16,6 +16,12 @@ public sealed class SettingsForm
     public int DefaultDepth { get; set; }
     public int AnalysisDepth { get; set; }
     public string? ProxyUrl { get; set; }
+
+    /// <summary>每局指导对弈的提示次数。</summary>
+    public int PlayHintQuota { get; set; } = 3;
+
+    /// <summary>每局指导对弈的悔棋次数。</summary>
+    public int PlayTakebackQuota { get; set; } = 3;
 }
 
 /// <summary>全局设置页(引擎安装与参数):只对管理员开放。</summary>
@@ -61,6 +67,8 @@ public class SettingsController : Controller
             AnalysisDepth = await _settings.GetIntAsync(SettingsStore.EngineAnalysisDepth, 16, ct),
             EngineInstalledAt = await _settings.GetAsync(SettingsStore.EngineInstalledAt, ct),
             ProxyUrl = proxyUrl,
+            PlayHintQuota = Math.Clamp(await _settings.GetIntAsync(SettingsStore.PlayHintQuota, 3, ct), 0, 10),
+            PlayTakebackQuota = Math.Clamp(await _settings.GetIntAsync(SettingsStore.PlayTakebackQuota, 3, ct), 0, 10),
             PlatformName = _platform.DisplayName,
             PlatformAssetName = _platform.AssetName,
             PlatformSupported = _platform.IsSupported,
@@ -110,6 +118,10 @@ public class SettingsController : Controller
         // 代理留空 = 直连;填了就走代理(设置页优先于 appsettings)
         var proxyUrl = form.ProxyUrl?.Trim();
         await _settings.SetAsync(SettingsStore.ProxyUrl, string.IsNullOrWhiteSpace(proxyUrl) ? null : proxyUrl, ct);
+
+        // 指导对弈的额度
+        await _settings.SetIntAsync(SettingsStore.PlayHintQuota, Math.Clamp(form.PlayHintQuota, 0, 10), ct);
+        await _settings.SetIntAsync(SettingsStore.PlayTakebackQuota, Math.Clamp(form.PlayTakebackQuota, 0, 10), ct);
 
         return Json(new { ok = true });
     }

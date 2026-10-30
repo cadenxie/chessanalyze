@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
     public DbSet<ImportBatch> ImportBatches => Set<ImportBatch>();
     public DbSet<AppSetting> Settings => Set<AppSetting>();
     public DbSet<User> Users => Set<User>();
+    public DbSet<PlaySession> PlaySessions => Set<PlaySession>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -71,6 +72,22 @@ public class AppDbContext : DbContext
         {
             b.ToTable("AppSettings");
             b.HasKey(s => s.Key);
+        });
+
+        modelBuilder.Entity<PlaySession>(b =>
+        {
+            b.ToTable("PlaySessions");
+            b.HasIndex(s => s.OwnerUserId);
+            b.HasIndex(s => s.OwnerAnonKey);
+            b.HasIndex(s => s.Status);
+            b.HasOne(s => s.OwnerUser)
+                .WithMany(u => u.PlaySessions)
+                .HasForeignKey(s => s.OwnerUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+            b.HasOne(s => s.Game)
+                .WithMany()
+                .HasForeignKey(s => s.GameId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 }

@@ -401,6 +401,22 @@ table.games td.result { font-weight: 700; }
 .brow .bloss { margin-left: auto; font-size: 11px; color: var(--text-dim); white-space: nowrap; }
 .brow.playing { background: var(--accent-soft); border-left-style: solid; }
 
+/* 教练批注行(指导对弈) */
+.crow {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin: 0 8px 6px 42px;
+    padding: 4px 10px;
+    border-left: 2px solid #e0d3b8;
+    border-radius: 0 8px 8px 0;
+    background: #fdf8ec;
+    cursor: pointer;
+}
+.crow:hover { background: #fbf2dd; border-left-color: var(--inaccuracy); }
+.crow .cmark { color: var(--inaccuracy); font-size: 12px; }
+.crow .ctext { font-size: 12px; color: #6b5b3e; }
+
 .legend {
     display: flex;
     flex-wrap: wrap;
@@ -438,9 +454,64 @@ footer.notes {
 }
 footer.notes a { color: var(--text-dim); text-decoration: underline; }
 
+/* ---------------- 指导对弈页 ---------------- */
+
+.play-layout {
+    display: grid;
+    grid-template-columns: minmax(440px, 560px) minmax(360px, 1fr);
+    gap: 18px;
+    align-items: start;
+}
+.play-layout .col { min-width: 0; }
+
+.coach-notes {
+    max-height: 420px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+.prow {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 4px 6px;
+    border-radius: 8px;
+    flex-wrap: wrap;
+}
+.prow.engine { opacity: .78; }
+.prow .pno { width: 30px; flex: 0 0 30px; text-align: right; color: var(--text-dim); font-size: 12px; }
+.prow .psan { min-width: 58px; }
+.prow .pcomment {
+    flex: 1 1 100%;
+    font-size: 12px;
+    color: var(--text-dim);
+    padding-left: 38px;
+}
+
+.hint-box {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border: 1px dashed var(--border-strong);
+    border-radius: 10px;
+    background: var(--surface-2);
+}
+.hint-box.hidden { display: none; }
+
+/* 大按钮:主要动作用(例如「去复盘」) */
+button.big {
+    padding: 9px 20px;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+/* 还没到能用的时候:看着是灰的,但点了会给提示,所以不禁用 */
+button.unavailable {
+    opacity: .5;
+}
+
 /* ---------------- 窄屏 ---------------- */
 
 @media (max-width: 1080px) {
     .review-layout { grid-template-columns: 1fr; }
+    .play-layout { grid-template-columns: 1fr; }
     .movelist { max-height: 420px; }
 }

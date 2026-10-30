@@ -40,7 +40,7 @@ public sealed class AnonymousCleanupService : BackgroundService
                 var removed = await CleanupAsync(stoppingToken);
                 if (removed > 0)
                 {
-                    _logger.LogInformation("已清理 {Count} 局过期的匿名棋局", removed);
+                    _logger.LogInformation("已清理 {Count} 条过期的匿名数据", removed);
                 }
             }
             catch (OperationCanceledException)
@@ -79,6 +79,11 @@ public sealed class AnonymousCleanupService : BackgroundService
 
         await using var db = await _factory.CreateDbContextAsync(ct);
 
+        // 匿名会话的指导对弈记录也一起清掉(会话本身没人看得见)
+        var staleSessions = await db.PlaySessions
+            .Where(s => s.OwnerAnonKey != null && s.UpdatedAt < cutoff)
+            .ExecuteDeleteAsync(ct);
+
         var staleIds = await db.Games
             .Where(g => g.OwnerAnonKey != null && g.ImportedAt < cutoff)
             .Select(g => g.Id)
@@ -86,7 +91,7 @@ public sealed class AnonymousCleanupService : BackgroundService
 
         if (staleIds.Count == 0)
         {
-            return 0;
+            return staleSessions;
         }
 
         // 显式删子表,别指望外键级联(SQLite 的外键开关不一定开着)
@@ -99,6 +104,6 @@ public sealed class AnonymousCleanupService : BackgroundService
             .Where(b => !db.Games.Any(g => g.ImportBatchId == b.Id))
             .ExecuteDeleteAsync(ct);
 
-        return staleIds.Count;
+        return staleIds.Count + staleSessions;
     }
 }

@@ -86,6 +86,12 @@ public sealed class SettingsViewModel
 
     /// <summary>当前平台是否有官方发行包可以一键安装。</summary>
     public bool PlatformSupported { get; set; }
+
+    /// <summary>每局指导对弈的提示次数。</summary>
+    public int PlayHintQuota { get; set; } = 3;
+
+    /// <summary>每局指导对弈的悔棋次数。</summary>
+    public int PlayTakebackQuota { get; set; } = 3;
 }
 
 public sealed record InstantAnalysisResponse(
@@ -98,3 +104,31 @@ public sealed record InstantAnalysisResponse(
     IReadOnlyList<string> Pv,
     IReadOnlyList<MultiPvLine> Lines,
     string BestMove);
+
+/// <summary>一个陪练难度档位。</summary>
+public sealed class CoachLevelOption
+{
+    public int Level { get; set; }
+    public string Name { get; set; } = "";
+    public string Description { get; set; } = "";
+}
+
+/// <summary>指导对弈页面的视图模型。</summary>
+public sealed class PlayViewModel
+{
+    /// <summary>引擎是否已经装好(没装就没法下)。</summary>
+    public bool EngineInstalled { get; set; }
+
+    public string? EngineVersion { get; set; }
+
+    /// <summary>默认难度档位。</summary>
+    public int DefaultLevel { get; set; } = 2;
+
+    /// <summary>每局默认的提示次数。</summary>
+    public int HintQuota { get; set; } = 3;
+
+    /// <summary>每局默认的悔棋次数。</summary>
+    public int TakebackQuota { get; set; } = 3;
+
+    public IReadOnlyList<CoachLevelOption> Levels { get; set; } = Array.Empty<CoachLevelOption>();
+}

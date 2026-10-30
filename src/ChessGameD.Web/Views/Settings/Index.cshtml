@@ -95,6 +95,22 @@
         </div>
 
         <div class="panel">
+            <h2>指导对弈</h2>
+            <p class="small muted">
+                每局新对弈的额度:提示额度只在「主动求提示」时扣(只看评估不扣),
+                事后警报(失误 / 漏着)不扣。悔棋额度每局单独算。
+            </p>
+            <label class="field">
+                <span>每局提示次数(0 ~ 10)</span>
+                <input type="number" id="opt-play-hints" min="0" max="10" value="@Model.PlayHintQuota" />
+            </label>
+            <label class="field">
+                <span>每局悔棋次数(0 ~ 10)</span>
+                <input type="number" id="opt-play-takebacks" min="0" max="10" value="@Model.PlayTakebackQuota" />
+            </label>
+        </div>
+
+        <div class="panel">
             <h2>测试连接</h2>
             <p class="small muted">用初始局面跑一次短搜索,确认引擎工作正常。</p>
             <button id="btn-test">测试引擎</button>

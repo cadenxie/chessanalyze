@@ -24,6 +24,12 @@ public class SettingsStore
     /// <summary>下载引擎时使用的代理地址(留空 = 直连)。</summary>
     public const string ProxyUrl = "Network.ProxyUrl";
 
+    /// <summary>每局指导对弈的提示次数。</summary>
+    public const string PlayHintQuota = "Play.HintQuota";
+
+    /// <summary>每局指导对弈的悔棋次数。</summary>
+    public const string PlayTakebackQuota = "Play.TakebackQuota";
+
     private readonly IDbContextFactory<AppDbContext> _factory;
     private readonly IMemoryCache _cache;
     private readonly ILogger<SettingsStore> _logger;

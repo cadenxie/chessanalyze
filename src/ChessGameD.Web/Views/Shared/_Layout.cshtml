@@ -17,6 +17,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="csrf-token" content="@csrfToken" />
     <title>@title · ChessGameD</title>
+    @* 页签图标:黑车棋子(SVG 优先,ICO / PNG 兼容旧浏览器) *@
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/favicon.png" />
     <link rel="stylesheet" href="~/lib/cm-chessboard/assets/chessboard.css" />
     @* 扩展的样式要单独引入:箭头的线条颜色/箭头头部都在这里,少了它箭头就画不出来 *@
     <link rel="stylesheet" href="~/lib/cm-chessboard/assets/extensions/arrows/arrows.css" />
@@ -28,6 +32,7 @@
     <nav>
         <a href="/Home/Index" class="@(controller == "Home" ? "active" : "")">首页</a>
         <a href="/Games/Index" class="@(controller == "Games" ? "active" : "")">棋局</a>
+        <a href="/Play/Index" class="@(controller == "Play" ? "active" : "")">对弈</a>
         @* 设置页只有管理员能进,菜单也跟着一起隐藏 *@
         @if (isAdmin)
         {

@@ -32,4 +32,7 @@ public class User
     public DateTime? LastLoginAt { get; set; }
 
     public ICollection<Game> Games { get; set; } = new List<Game>();
+
+    /// <summary>这个人名下的指导对弈会话。</summary>
+    public ICollection<PlaySession> PlaySessions { get; set; } = new List<PlaySession>();
 }

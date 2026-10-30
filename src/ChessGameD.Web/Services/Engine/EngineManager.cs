@@ -468,7 +468,8 @@ public sealed class EngineManager : IHostedService, IAsyncDisposable
         return parts.Length < 2 || !parts[1].Equals("b", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static EngineAnalysis ToAnalysis(UciSearchResult result, string fen)
+    /// <summary>把引擎结果换算成「相对白方」的口径。陪练引擎也用这个换算。</summary>
+    internal static EngineAnalysis ToAnalysis(UciSearchResult result, string fen)
     {
         var whiteToMove = IsWhiteToMove(fen);
         var lines = result.Lines

@@ -104,6 +104,10 @@ function renderMoveList() {
         if (hasBestRow(cls)) {
             list.appendChild(buildBestRow(cls, move));
         }
+        // 指导对弈留下的教练批注(导入的棋谱没有批注)
+        if (move.comment) {
+            list.appendChild(buildCommentRow(move));
+        }
     }
 
     highlightCurrentMove();
@@ -149,6 +153,28 @@ function buildMoveRow(move, cls) {
     const point = pointOf(move.ply);
     evalEl.textContent = state.analyzed && point ? CG.formatScore(point.scoreCp, point.scoreMate) : '';
     row.appendChild(evalEl);
+
+    row.addEventListener('click', function () { goTo(move.ply); });
+    return row;
+}
+
+/**
+ * 教练批注行:指导对弈时写下的评语(例如「这一步是严重失误」)。
+ */
+function buildCommentRow(move) {
+    const row = document.createElement('div');
+    row.className = 'crow';
+    row.dataset.ply = String(move.ply);
+
+    const mark = document.createElement('span');
+    mark.className = 'cmark';
+    mark.textContent = '✎';
+    row.appendChild(mark);
+
+    const text = document.createElement('span');
+    text.className = 'ctext';
+    text.textContent = move.comment;
+    row.appendChild(text);
 
     row.addEventListener('click', function () { goTo(move.ply); });
     return row;

@@ -5,8 +5,8 @@ namespace ChessGameD.Web.Data;
 /// <summary>
 /// 数据库备份。
 ///
-/// 项目用 <c>EnsureCreated()</c> 管理表结构,改了实体之后启动时会发现结构不匹配,
-/// 于是删库重建——重建之前先把旧库备份一份,免得数据说没就没了。
+/// 项目现在用 EF Core Migrations 管理表结构:改了实体之后只往上加迁移,绝不删库重建。
+/// 但迁移前还是先备份一份旧库——万一迁移脚本有问题,至少能捡回来。
 /// </summary>
 public static class DatabaseBackup
 {
@@ -44,7 +44,7 @@ public static class DatabaseBackup
             cmd.Parameters.AddWithValue("$target", target);
             await cmd.ExecuteNonQueryAsync(ct);
 
-            logger.LogWarning("数据库结构不匹配,旧库已备份到 {Path}", target);
+            logger.LogWarning("数据库已备份到 {Path}", target);
             return target;
         }
         catch (Exception ex)

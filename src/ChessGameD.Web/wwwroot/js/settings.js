@@ -109,7 +109,9 @@
             multiPv: Number(document.getElementById('opt-multipv').value || 3),
             defaultDepth: Number(document.getElementById('opt-depth').value || 18),
             analysisDepth: Number(document.getElementById('opt-analysis-depth').value || 16),
-            proxyUrl: document.getElementById('opt-proxy').value
+            proxyUrl: document.getElementById('opt-proxy').value,
+            playHintQuota: Number(document.getElementById('opt-play-hints').value || 3),
+            playTakebackQuota: Number(document.getElementById('opt-play-takebacks').value || 3)
         };
 
         try {

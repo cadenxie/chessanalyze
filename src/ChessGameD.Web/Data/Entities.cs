@@ -37,7 +37,8 @@ public class Game
     /// <summary>导入时间(UTC)。用 <see cref="DateTime"/> 而非 DateTimeOffset,否则 SQLite 无法对该列排序。</summary>
     public DateTime ImportedAt { get; set; }
 
-    public int ImportBatchId { get; set; }
+    /// <summary>导入批次 id;指导对弈产生的棋局没有批次,为 null。</summary>
+    public int? ImportBatchId { get; set; }
     public ImportBatch? ImportBatch { get; set; }
 
     /// <summary>归属的登录用户;与 <see cref="OwnerAnonKey"/> 二选一。</summary>
@@ -132,4 +133,80 @@ public class AppSetting
 {
     [MaxLength(100)] public string Key { get; set; } = "";
     public string? Value { get; set; }
+}
+
+/// <summary>
+/// 一局「人机指导对弈」会话。表名 PlaySessions。
+///
+/// 对局过程中的走法、局面评估、额度都存在这里;终局之后会把棋谱写进
+/// <see cref="Game"/> / <see cref="GameMove"/>,复盘、分析、报告走原有那条主线。
+/// </summary>
+public class PlaySession
+{
+    public int Id { get; set; }
+
+    /// <summary>归属的登录用户;与 <see cref="OwnerAnonKey"/> 二选一。</summary>
+    public int? OwnerUserId { get; set; }
+    public User? OwnerUser { get; set; }
+
+    /// <summary>归属的匿名会话(会话级 GUID);与 <see cref="OwnerUserId"/> 二选一。</summary>
+    [MaxLength(64)] public string? OwnerAnonKey { get; set; }
+
+    /// <summary>会话状态:Active / Finished / Abandoned。</summary>
+    [MaxLength(20)] public string Status { get; set; } = "Active";
+
+    /// <summary>对手强度档位(1 入门 ~ 4 高级)。</summary>
+    public int Level { get; set; } = 2;
+
+    /// <summary>开局局面 FEN(标准开局为 null)。</summary>
+    [MaxLength(120)] public string? InitialFen { get; set; }
+
+    /// <summary>当前局面 FEN。</summary>
+    [MaxLength(120)] public string CurrentFen { get; set; } = "";
+
+    /// <summary>已经走了多少个半回合。</summary>
+    public int PlyCount { get; set; }
+
+    /// <summary>走法记录(JSON 数组)。</summary>
+    public string MovesJson { get; set; } = "[]";
+
+    /// <summary>局面评估记录(JSON 数组,下标 = ply)。</summary>
+    public string EvalsJson { get; set; } = "[]";
+
+    /// <summary>悔棋记录(JSON 数组)。</summary>
+    public string TakebacksJson { get; set; } = "[]";
+
+    /// <summary>剩余提示次数。</summary>
+    public int HintsLeft { get; set; } = 3;
+
+    /// <summary>已用提示次数。</summary>
+    public int HintsUsed { get; set; }
+
+    /// <summary>剩余悔棋次数。</summary>
+    public int TakebacksLeft { get; set; } = 3;
+
+    /// <summary>已用悔棋次数。</summary>
+    public int TakebacksUsed { get; set; }
+
+    /// <summary>失误(含错误 / 严重失误)次数。</summary>
+    public int MistakeCount { get; set; }
+
+    /// <summary>严重失误次数。</summary>
+    public int BlunderCount { get; set; }
+
+    /// <summary>漏着次数。</summary>
+    public int MissedWinCount { get; set; }
+
+    /// <summary>终局后写入的棋局 id。</summary>
+    public int? GameId { get; set; }
+    public Game? Game { get; set; }
+
+    /// <summary>1-0 / 0-1 / 1/2-1/2 / *</summary>
+    [MaxLength(10)] public string? Result { get; set; }
+
+    /// <summary>终局原因(将死 / 认输 / 和棋 …)。</summary>
+    [MaxLength(100)] public string? Termination { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
 }

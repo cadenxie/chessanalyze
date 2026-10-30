@@ -28,7 +28,10 @@ public sealed class TestDatabase : IAsyncDisposable
             .Options;
 
         Context = new AppDbContext(options);
-        Context.Database.EnsureCreated();
+
+        // 跟正式环境一样走增量迁移(而不是 EnsureCreated),这样迁移本身也被测到
+        Context.Database.Migrate();
+
         Factory = new TestFactory(options);
         Settings = new SettingsStore(Factory, new MemoryCache(new MemoryCacheOptions()), NullLogger<SettingsStore>.Instance);
 
