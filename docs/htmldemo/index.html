@@ -24,7 +24,7 @@
     </p>
 
     <main class="layout">
-        <!-- ---------- 左栏:棋盘 + 导航 + 竖评估条 ---------- -->
+        <!-- ---------- 左栏:棋盘 + 当前局面 + 评估曲线 ---------- -->
         <section class="col col-board">
             <div class="panel game-card">
                 <div class="players">
@@ -72,10 +72,31 @@
                 <h3>候选</h3>
                 <div class="cands" id="inst-cands"></div>
             </div>
+
+            <div class="panel">
+                <h2>评估曲线</h2>
+                <canvas id="chart" height="220"></canvas>
+                <div class="small muted">横轴为步数,纵轴为相对白方的评估(向上为白方占优),点击曲线可跳转到对应局面。</div>
+            </div>
         </section>
 
-        <!-- ---------- 中栏:走法树 + 最佳步骤行 ---------- -->
-        <section class="col col-moves">
+        <!-- ---------- 右栏:引擎面板 + 走法树 + PGN ---------- -->
+        <section class="col col-side">
+            <div class="panel">
+                <h2>引擎分析</h2>
+                <div class="btn-row">
+                    <button class="primary" id="btn-analyze">分析本局</button>
+                    <button id="btn-analyze-force" title="忽略缓存,全部重算">重新分析</button>
+                    <button id="btn-stop" disabled>停止</button>
+                </div>
+                <div class="progress hidden" id="progress"><div id="progress-bar"></div></div>
+                <div class="small muted" id="analysis-status">整局分析会依次评估每个局面,并给出走子分类与最佳续着。</div>
+                <div class="kv">
+                    <span class="k">引擎推荐</span>
+                    <span class="mono" id="stored-rec">—</span>
+                </div>
+            </div>
+
             <div class="panel">
                 <div class="panel-head">
                     <h2>走法与最佳行</h2>
@@ -95,30 +116,6 @@
                     <span class="chip mc-missed">漏着</span>
                     <span class="legend-note">坏棋下面会挂一行引擎的最佳续着,点它可以在棋盘上演示。</span>
                 </div>
-            </div>
-        </section>
-
-        <!-- ---------- 右栏:引擎面板 + 曲线 + PGN ---------- -->
-        <section class="col col-side">
-            <div class="panel">
-                <h2>引擎分析</h2>
-                <div class="btn-row">
-                    <button class="primary" id="btn-analyze">分析本局</button>
-                    <button id="btn-analyze-force" title="忽略缓存,全部重算">重新分析</button>
-                    <button id="btn-stop" disabled>停止</button>
-                </div>
-                <div class="progress hidden" id="progress"><div id="progress-bar"></div></div>
-                <div class="small muted" id="analysis-status">整局分析会依次评估每个局面,并给出走子分类与最佳续着。</div>
-                <div class="kv">
-                    <span class="k">引擎推荐</span>
-                    <span class="mono" id="stored-rec">—</span>
-                </div>
-            </div>
-
-            <div class="panel">
-                <h2>评估曲线</h2>
-                <canvas id="chart" height="220"></canvas>
-                <div class="small muted">横轴为步数,纵轴为相对白方的评估(向上为白方占优),点击曲线可跳转到对应局面。</div>
             </div>
 
             <div class="panel">

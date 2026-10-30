@@ -111,11 +111,11 @@ button.primary:hover:not(:disabled) { background: #4338ca; color: #fff; }
 
 .layout {
     display: grid;
-    grid-template-columns: minmax(420px, 500px) minmax(320px, 380px) minmax(360px, 1fr);
+    grid-template-columns: minmax(440px, 560px) minmax(420px, 1fr);
     gap: 18px;
     align-items: start;
     padding: 16px 22px 26px;
-    max-width: 1560px;
+    max-width: 1400px;
     margin: 0 auto;
 }
 .col { min-width: 0; }
@@ -171,7 +171,6 @@ button.primary:hover:not(:disabled) { background: #4338ca; color: #fff; }
 }
 .board {
     width: 100%;
-    max-width: 460px;
     border-radius: 10px;
     overflow: hidden;
     box-shadow: var(--shadow);
@@ -381,7 +380,7 @@ button.primary:hover:not(:disabled) { background: #4338ca; color: #fff; }
 }
 
 footer.notes {
-    max-width: 1560px;
+    max-width: 1400px;
     margin: 0 auto;
     padding: 4px 22px 26px;
     color: var(--text-dim);
@@ -397,7 +396,7 @@ footer.notes code {
 
 /* ---------------- 窄屏 ---------------- */
 
-@media (max-width: 1180px) {
+@media (max-width: 1080px) {
     .layout { grid-template-columns: 1fr; }
     .movelist { max-height: 420px; }
 }
