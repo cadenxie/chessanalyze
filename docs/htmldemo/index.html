@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <title>分析页 Demo · ChessGameD</title>
+    <!-- 棋盘与箭头扩展的样式直接引用仓库里已经 vendored 的版本,离线可用 -->
+    <link rel="stylesheet" href="../../src/ChessGameD.Web/wwwroot/lib/cm-chessboard/assets/chessboard.css" />
+    <link rel="stylesheet" href="../../src/ChessGameD.Web/wwwroot/lib/cm-chessboard/assets/extensions/arrows/arrows.css" />
+    <link rel="stylesheet" href="assets/demo.css" />
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand">ChessGame<span>D</span><em>分析页 Demo</em></div>
+        <span class="tag">静态原型 · 不连后端</span>
+        <div class="spacer"></div>
+        <span class="badge" id="engine-badge">Stockfish 17.1 · 演示</span>
+    </header>
+
+    <p class="notice">
+        这是分析页的交互原型:棋局、评估、分类全部是<b>手工编造的演示数据</b>,页面不与后端或引擎交互,
+        用来评审「走法 + 最佳步骤行 + 评估曲线」的呈现方式。
+    </p>
+
+    <main class="layout">
+        <!-- ---------- 左栏:棋盘 + 导航 + 竖评估条 ---------- -->
+        <section class="col col-board">
+            <div class="panel game-card">
+                <div class="players">
+                    <span class="w">Anderssen, Adolf</span>
+                    <span class="result">1-0</span>
+                    <span class="b">Kieseritzky, Lionel</span>
+                </div>
+                <div class="small muted">C52 · Evans Gambit · 1851.06.21 · London ENG</div>
+            </div>
+
+            <div class="board-row">
+                <div id="board" class="board"></div>
+                <div class="gauge" id="gauge" title="评估条:下方为白方">
+                    <div class="gauge-black" id="gauge-black"></div>
+                    <div class="gauge-white" id="gauge-white"></div>
+                    <div class="gauge-label" id="gauge-label">—</div>
+                </div>
+            </div>
+
+            <div class="nav">
+                <button id="btn-first" title="回到开局 (Home)">⏮</button>
+                <button id="btn-prev" title="上一步 (←)">◀</button>
+                <span class="ply-label" id="ply-label">开局</span>
+                <button id="btn-next" title="下一步 (→)">▶</button>
+                <button id="btn-last" title="到最后 (End)">⏭</button>
+                <button id="btn-flip" title="翻转棋盘 (F)">翻转</button>
+                <button id="btn-back" class="hidden" title="回到棋局当前局面">返回原局面</button>
+            </div>
+
+            <div class="small muted status" id="play-status"></div>
+
+            <div class="panel">
+                <h2>当前局面</h2>
+                <div class="kv">
+                    <span class="k">分值</span>
+                    <span class="mono" id="inst-score">—</span>
+                    <span class="k">深度</span>
+                    <span class="mono" id="inst-depth">—</span>
+                    <span class="k">节点</span>
+                    <span class="mono" id="inst-nodes">—</span>
+                </div>
+                <h3>主变 (PV)</h3>
+                <div class="pv" id="inst-pv">—</div>
+                <div class="small muted">点主变里的着法,棋盘会从当前局面逐步演示过去。</div>
+                <h3>候选</h3>
+                <div class="cands" id="inst-cands"></div>
+            </div>
+        </section>
+
+        <!-- ---------- 中栏:走法树 + 最佳步骤行 ---------- -->
+        <section class="col col-moves">
+            <div class="panel">
+                <div class="panel-head">
+                    <h2>走法与最佳行</h2>
+                    <span class="head-actions">
+                        <button id="btn-next-problem" class="small" title="跳到下一个需要复盘的着法">下一个问题手</button>
+                        <span class="small muted" id="moves-summary">尚未分析</span>
+                    </span>
+                </div>
+                <div class="movelist" id="movelist"></div>
+                <div class="legend small muted">
+                    <span class="chip mc-best">最佳</span>
+                    <span class="chip mc-excellent">优秀</span>
+                    <span class="chip mc-good">良好</span>
+                    <span class="chip mc-inaccuracy">失误</span>
+                    <span class="chip mc-mistake">错误</span>
+                    <span class="chip mc-blunder">严重失误</span>
+                    <span class="chip mc-missed">漏着</span>
+                    <span class="legend-note">坏棋下面会挂一行引擎的最佳续着,点它可以在棋盘上演示。</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- ---------- 右栏:引擎面板 + 曲线 + PGN ---------- -->
+        <section class="col col-side">
+            <div class="panel">
+                <h2>引擎分析</h2>
+                <div class="btn-row">
+                    <button class="primary" id="btn-analyze">分析本局</button>
+                    <button id="btn-analyze-force" title="忽略缓存,全部重算">重新分析</button>
+                    <button id="btn-stop" disabled>停止</button>
+                </div>
+                <div class="progress hidden" id="progress"><div id="progress-bar"></div></div>
+                <div class="small muted" id="analysis-status">整局分析会依次评估每个局面,并给出走子分类与最佳续着。</div>
+                <div class="kv">
+                    <span class="k">引擎推荐</span>
+                    <span class="mono" id="stored-rec">—</span>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>评估曲线</h2>
+                <canvas id="chart" height="220"></canvas>
+                <div class="small muted">横轴为步数,纵轴为相对白方的评估(向上为白方占优),点击曲线可跳转到对应局面。</div>
+            </div>
+
+            <div class="panel">
+                <h2>PGN</h2>
+                <pre class="pgn" id="pgn"></pre>
+            </div>
+        </section>
+    </main>
+
+    <footer class="notes">
+        演示原型 · 走法与 FEN 来自 <code>samples/example.pgn</code> 的不朽游戏并经 <code>chess.js</code> 校验;
+        评估、分类与最佳续着为手工编造的演示数据,不代表引擎真实结论。
+    </footer>
+
+    <script type="module" src="assets/demo.js"></script>
+</body>
+</html>

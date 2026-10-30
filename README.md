@@ -253,6 +253,7 @@ ChessGameD.sln
 │       ├── css/ js/                # 自有样式与前端脚本
 │       └── lib/                    # vendored 的 chess.js / cm-chessboard
 ├── samples/example.pgn             # 示例 PGN(三局经典名局)
+├── docs/htmldemo/                 # 分析页的静态交互原型(不进发布产物)
 └── tests/
     ├── ChessGameD.Tests/           # xUnit 测试(164 个)
     └── ChessGameD.FakeEngine/      # 假的 UCI 引擎,给测试用
@@ -327,4 +328,6 @@ Stockfish 是 GPL 软件:以独立进程方式调用、通过标准输入输出�
 - 主变(PV)可以点击演示;「候选」里的其他变着暂时只是文字,还不能点击演示。
 - 引擎只有一个,所有分析请求排一条队;整局分析跑起来时,即时分析要等它轮到(最多等 2 分钟,超时会提示队列情况)。
 - 不支持在线对战、人机对弈、双人对弈。
+- `docs/htmldemo/` 是分析页的**静态交互原型**:不连后端、不进发布产物,里面的评估与分类是手工编造的演示数据,
+  只用来评审「走法 + 最佳步骤行 + 评估曲线」的呈现方式(用任意静态服务器打开,见该目录下的 README)。
 - 顶部菜单的 Git 角标已隐藏(代码保留在 `_Layout.cshtml` 的注释里),只有 GitHub 按钮;分支/提交号仍是构建时写进程序集的,以后想恢复显示,重新 `dotnet build` 即可。
