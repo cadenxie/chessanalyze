@@ -5,7 +5,7 @@
 
 <div class="panel">
     <h2>棋局列表 <span class="badge">@Model.Total</span></h2>
-    <form method="get" action="/Games/Index" class="row" style="align-items:center; margin-bottom:12px;">
+    <form method="get" action="/Games/Index" class="search-row" style="margin-bottom:12px;">
         <input type="search" name="q" value="@Model.Query" placeholder="按棋手 / 开局 / ECO / 赛事搜索" style="max-width: 420px;" />
         <button type="submit">搜索</button>
         @if (!string.IsNullOrWhiteSpace(Model.Query))
@@ -20,6 +20,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="games">
             <thead>
                 <tr>
@@ -51,6 +52,8 @@
                 }
             </tbody>
         </table>
+        </div>
+        <p class="scroll-hint">← 左右滑动查看更多列 →</p>
         @if (Model.Total > Model.Games.Count)
         {
             <p class="small muted" style="margin-top:10px;">仅显示最近 500 局,共 @Model.Total 局。</p>

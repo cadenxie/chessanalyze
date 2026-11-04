@@ -43,20 +43,23 @@
         <a class="repo-btn" href="@GitInfo.RepositoryUrl" target="_blank" rel="noopener" title="项目源码仓库:@GitInfo.RepositoryUrl">GitHub</a>
     </nav>
     <div class="spacer"></div>
-    @if (signedIn)
-    {
-        <a href="/Account/Profile" class="small">@User.Identity!.Name</a>
-        <form method="post" action="/Account/Logout" style="display:inline;">
-            @Html.AntiForgeryToken()
-            <button type="submit" class="small">退出</button>
-        </form>
-    }
-    else
-    {
-        <a href="/Account/Login" class="small">登录</a>
-        <a href="/Account/Register" class="small">注册</a>
-    }
-    <span id="engine-indicator" class="badge">引擎状态加载中…</span>
+    @* 右上角:账号操作 + 引擎状态,窄屏时这一整块会挪到第一行 *@
+    <div class="topbar-right">
+        @if (signedIn)
+        {
+            <a href="/Account/Profile" class="small topbar-user">@User.Identity!.Name</a>
+            <form method="post" action="/Account/Logout" style="display:inline;">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="small">退出</button>
+            </form>
+        }
+        else
+        {
+            <a href="/Account/Login" class="small">登录</a>
+            <a href="/Account/Register" class="small">注册</a>
+        }
+        <span id="engine-indicator" class="badge">引擎状态加载中…</span>
+    </div>
     @* Git 信息角标:分支 + 短提交号,点进去是这一版的提交详情 *@
     @* <a id="git-info" class="badge git-badge" href="@GitInfo.CommitUrl" target="_blank" rel="noopener" title="@GitInfo.Tooltip">@GitInfo.DisplayText</a> *@
 </header>

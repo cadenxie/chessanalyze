@@ -334,7 +334,8 @@ function drawChart() {
 
     const dpr = window.devicePixelRatio || 1;
     const cssWidth = chartCanvas.clientWidth || 420;
-    const cssHeight = 220;
+    // 高度跟着 CSS 走:窄屏下曲线画布会矮一些
+    const cssHeight = chartCanvas.clientHeight || 220;
     chartCanvas.width = Math.round(cssWidth * dpr);
     chartCanvas.height = Math.round(cssHeight * dpr);
 
@@ -879,6 +880,7 @@ function bind() {
     });
 
     window.addEventListener('resize', drawChart);
+    window.addEventListener('orientationchange', drawChart);
 }
 
 /* ---------------- 启动 ---------------- */

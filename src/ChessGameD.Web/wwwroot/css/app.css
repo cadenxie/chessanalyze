@@ -56,6 +56,19 @@ a:hover { text-decoration: underline; }
 .topbar nav a:hover, .topbar nav a.active { color: var(--text); text-decoration: none; }
 .topbar .spacer { flex: 1; }
 
+/* 右上角:账号操作 + 引擎状态 */
+.topbar .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.topbar .topbar-user {
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 /* 顶部的源码按钮:跳到 GitHub 仓库 */
 .topbar nav a.repo-btn {
     display: inline-block;
@@ -159,6 +172,13 @@ input[type=text], input[type=number], input[type=search], input[type=password], 
     width: 100%;
 }
 textarea { font-family: var(--mono); min-height: 120px; resize: vertical; }
+/* 文件选择框在手机上别超出屏幕 */
+input[type=file] {
+    width: 100%;
+    max-width: 100%;
+    font-size: 12px;
+    padding: 6px 0;
+}
 input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); }
 label.field { display: block; margin-bottom: 12px; }
 label.field > span { display: block; color: var(--text-dim); font-size: 12px; margin-bottom: 4px; }
@@ -179,6 +199,11 @@ table.games td.result { font-weight: 700; }
     grid-template-columns: 90px 1fr;
     gap: 4px 10px;
     font-size: 13px;
+}
+/* 引擎路径之类的长文本在窄屏里换行,不撑破面板 */
+.kv > * {
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 .kv .k { color: var(--text-dim); }
 
@@ -227,6 +252,38 @@ table.games td.result { font-weight: 700; }
     color: #55504a;
 }
 
+/* ---------------- 通用小组件 ---------------- */
+
+/* 隐藏元素:进度条、临时出现的按钮都靠它 */
+.hidden { display: none !important; }
+
+/* 一排按钮:窄屏会自动换行 */
+.btn-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+/* 宽表格在窄屏里横向滑动,不撑破页面 */
+.table-scroll {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* 表格的滑动提示:宽屏不显示 */
+.scroll-hint { display: none; }
+
+/* 搜索栏:输入框占满剩余宽度,按钮跟在后面 */
+.search-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+.search-row input { flex: 1 1 180px; }
+
 /* ---------------- 复盘页 ---------------- */
 
 .review-layout {
@@ -256,9 +313,13 @@ table.games td.result { font-weight: 700; }
     display: flex;
     gap: 12px;
     align-items: stretch;
+    justify-content: center;
     margin-bottom: 12px;
 }
 .board {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 560px;
     width: 100%;
     border-radius: 10px;
     overflow: hidden;
@@ -276,6 +337,7 @@ table.games td.result { font-weight: 700; }
 /* 竖向评估条:下方为白方 */
 .gauge {
     position: relative;
+    flex: 0 0 38px;
     width: 38px;
     min-height: 120px;
     border-radius: 8px;
@@ -510,8 +572,123 @@ button.unavailable {
 
 /* ---------------- 窄屏 ---------------- */
 
+/* 平板 / 中等屏:两栏布局合成一栏 */
 @media (max-width: 1080px) {
     .review-layout { grid-template-columns: 1fr; }
     .play-layout { grid-template-columns: 1fr; }
     .movelist { max-height: 420px; }
+}
+
+/* ---------------- 手机 ---------------- */
+
+/* 顶栏在窄屏折成两行:第一行品牌 + 账号,第二行导航(可横向滑动) */
+@media (max-width: 900px) {
+    .topbar {
+        flex-wrap: wrap;
+        row-gap: 6px;
+        column-gap: 12px;
+        padding: 8px 12px;
+    }
+    .topbar .brand { font-size: 15px; }
+    .topbar nav {
+        order: 10;
+        flex: 1 0 100%;
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        border-top: 1px solid var(--border);
+    }
+    .topbar nav::-webkit-scrollbar { display: none; }
+    .topbar nav a {
+        margin-right: 0;
+        white-space: nowrap;
+        padding: 6px 0;
+    }
+    .topbar .topbar-right {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    #engine-indicator {
+        max-width: 150px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .container { padding: 12px 12px 20px; }
+    .panel { padding: 12px 13px; margin-bottom: 12px; }
+    .row { gap: 12px; flex-wrap: wrap; }
+    .row.wrap > .col { min-width: 240px; }
+
+    /* 触屏按钮给足点击面积 */
+    button, .btn { min-height: 40px; padding: 8px 13px; }
+    .nav button { min-width: 44px; }
+
+    .gauge { flex: 0 0 28px; width: 28px; }
+    .gauge .gauge-label { font-size: 10px; bottom: 4px; }
+
+    /* 手机上不套多层滚动区,内容直接往下排 */
+    .movelist { max-height: none; }
+    .coach-notes { max-height: 55vh; }
+    #chart { height: 170px; }
+
+    .kv { grid-template-columns: 78px 1fr; }
+
+    /* 表格列不再被挤成竖排,统一横向滚动 */
+    table.games th, table.games td { white-space: nowrap; }
+    .game-card .players { flex-wrap: wrap; gap: 6px 10px; }
+    .panel-head { flex-wrap: wrap; }
+    .search-row input { max-width: none; }
+    .scroll-hint { display: block; margin: 8px 0 0; }
+
+    .toast {
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+        max-width: none;
+    }
+    footer.notes { padding: 4px 14px 22px; }
+}
+
+/* 小屏手机:控件排成网格,避免横向溢出 */
+@media (max-width: 560px) {
+    .topbar { padding: 7px 10px; }
+    .topbar nav { gap: 14px; }
+    .topbar nav a.repo-btn { padding: 3px 10px; }
+
+    .nav {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 6px;
+    }
+    .nav .ply-label {
+        grid-column: 1 / -1;
+        order: -1;
+        min-width: 0;
+        text-align: center;
+    }
+    .nav button {
+        width: 100%;
+        min-width: 0;
+        padding: 8px 4px;
+        font-size: 12px;
+    }
+    .nav #btn-review { grid-column: span 2; }
+
+    .mrow { gap: 6px; padding: 5px 4px; flex-wrap: wrap; }
+    .mrow .mno { width: 28px; flex: 0 0 28px; }
+    .mrow .mchip { width: 46px; flex: 0 0 46px; }
+    .mrow .msan { min-width: 0; }
+    .brow, .crow { margin-left: 12px; margin-right: 4px; padding: 5px 8px; }
+
+    .table-scroll table.games { min-width: 640px; }
+
+    button.big { padding: 10px 16px; font-size: 15px; }
+    .pgn-text { max-height: 200px; font-size: 11px; }
+    .legend { gap: 4px; }
 }
