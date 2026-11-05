@@ -1,14 +1,19 @@
 import { Chessboard } from '/lib/cm-chessboard/src/Chessboard.js';
 import { Arrows, ARROW_TYPE } from '/lib/cm-chessboard/src/extensions/arrows/Arrows.js';
+import { Markers, MARKER_TYPE } from '/lib/cm-chessboard/src/extensions/markers/Markers.js';
 import { Chess } from '/lib/chess.js/chess.js';
 
 const data = CG.readJsonScript('play-data');
 const initialFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
+// 能吃的子要套在棋子上面画圈:库自带的 circle 画在棋子下面,会被挡住
+const MARKER_CAPTURE = { class: 'marker-circle', slice: 'markerCircle', position: 'above' };
+
 var state = {
     session: null,       // 服务端返回的对局状态
     busy: false,         // 请求进行中(引擎思考中)
-    orientation: 'w'
+    orientation: 'w',
+    selected: null       // 当前选中的格子(自己的棋子)
 };
 
 var boardEl = document.getElementById('board');
@@ -24,6 +29,11 @@ var board = new Chessboard(boardEl, {
     }
 });
 board.addExtension(Arrows, { sprite: 'extensions/arrows/arrows.svg' });
+// 选中效果与可走落点自己画:关掉库自带的自动标记,免得两套标记打架
+board.addExtension(Markers, {
+    sprite: 'extensions/markers/markers.svg',
+    autoMarkers: null
+});
 
 /* ---------------- 小工具 ---------------- */
 
@@ -76,6 +86,7 @@ function renderSession() {
 
     el('opponent-label').textContent = '陪练引擎(' + session.levelName + ')';
 
+    clearSelection();
     board.setPosition(session.fen || initialFen, true);
     board.removeArrows();
 
@@ -196,22 +207,81 @@ function renderHintBox(hint) {
     box.classList.remove('hidden');
 }
 
+/* ---------------- 选中效果与可走落点 ---------------- */
+
+/** 当前局面;拿不到就返回 null。 */
+function currentChess() {
+    if (!state.session) { return null; }
+    try {
+        return new Chess(state.session.fen || initialFen);
+    } catch (e) {
+        return null;
+    }
+}
+
+/** 选中自己的棋子:格子染色 + 能走的空格标点、能吃的子套圈。 */
+function showSelection(from) {
+    clearSelection();
+
+    var chess = currentChess();
+    if (!chess) { return; }
+
+    var piece = chess.get(from);
+    if (!piece || piece.color !== 'w') { return; }   // 只能选自己的棋子
+
+    var moves = chess.moves({ square: from, verbose: true });
+    if (!moves.length) { return; }                   // 没路可走就不显示选中
+
+    state.selected = from;
+    board.addMarker(MARKER_TYPE.square, from);      // 选中的格子染色
+
+    moves.forEach(function (m) {
+        if (m.promotion && m.promotion !== 'q') { return; }  // 同一格升变只标一次
+        if (board.getPiece(m.to)) {
+            board.addMarker(MARKER_CAPTURE, m.to);   // 能吃的子:套个圈
+        } else {
+            board.addMarker(MARKER_TYPE.dot, m.to);   // 空格子:点一下
+        }
+    });
+}
+
+/** 清掉选中效果和落点标记。 */
+function clearSelection() {
+    state.selected = null;
+    board.removeMarkers();
+}
+
 /* ---------------- 棋盘交互 ---------------- */
 
 function setMoveInputEnabled(enabled) {
     if (enabled) {
-        board.enableMoveInput(onMoveInput);
+        // 只让白方(玩家自己)能动棋:不然能捡起对方的棋子,选中效果也没意义
+        board.enableMoveInput(onMoveInput, 'w');
     } else {
         board.disableMoveInput();
     }
 }
 
 function onMoveInput(evt) {
+    if (evt.type === 'moveInputStarted') {
+        // 点中自己的棋子:显示选中效果和能走的格子
+        showSelection(evt.squareFrom);
+        return true;
+    }
+    if (evt.type === 'moveInputCanceled') {
+        // 再点一次同一个棋子、拖回原位、点到别的棋子:取消选中
+        clearSelection();
+        return true;
+    }
     if (evt.type === 'validateMoveInput') {
         return canMove(evt.squareFrom, evt.squareTo);
     }
     if (evt.type === 'moveInputFinished') {
-        if (!evt.legalMove) { return true; }
+        if (!evt.legalMove) {
+            // 点的地方不能走:保留选中,换个落点再试
+            return true;
+        }
+        clearSelection();
         submitUserMove(evt.squareFrom, evt.squareTo);
     }
     return true;

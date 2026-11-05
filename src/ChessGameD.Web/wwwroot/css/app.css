@@ -334,6 +334,11 @@ table.games td.result { font-weight: 700; }
 .cm-chessboard.paper .coordinates .coordinate.black { fill: #f4efe6; }
 .cm-chessboard.paper .coordinates .coordinate.white { fill: #4a4238; }
 
+/* 对弈:选中棋子的格子染色 + 可走落点标记(空格子一个点、能吃的子套个圈) */
+.cm-chessboard.paper .markers .marker.marker-square { fill: #2f6fd0; opacity: 0.26; }
+.cm-chessboard.paper .markers .marker.marker-dot { fill: #2f6fd0; opacity: 0.55; }
+.cm-chessboard.paper .markers .marker.marker-circle { stroke: #2f6fd0; stroke-width: 3px; opacity: 0.65; }
+
 /* 竖向评估条:下方为白方 */
 .gauge {
     position: relative;
